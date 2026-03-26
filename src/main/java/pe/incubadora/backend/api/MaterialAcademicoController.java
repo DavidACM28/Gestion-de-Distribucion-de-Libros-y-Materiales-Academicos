@@ -10,6 +10,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import pe.incubadora.backend.dtos.ErrorResponseDTO;
 import pe.incubadora.backend.dtos.MaterialAcademicoDTO;
+import pe.incubadora.backend.entities.MaterialAcademicoEntity;
 import pe.incubadora.backend.services.MaterialAcademicoService;
 import pe.incubadora.backend.utils.materialAcademico.CreateMaterialAcademicoResult;
 import pe.incubadora.backend.utils.materialAcademico.UpdateMaterialAcademicoResult;
@@ -95,5 +96,15 @@ public class MaterialAcademicoController {
     public ResponseEntity<Object> getMateriales(@RequestParam int page) {
         Pageable pageable = Pageable.ofSize(10).withPage(page);
         return ResponseEntity.status(HttpStatus.OK).body(materialAcademicoService.getMaterialesAcademicos(pageable));
+    }
+
+    @GetMapping("/materiales/{id}")
+    public ResponseEntity<Object> getMaterialById(@PathVariable Long id) {
+        MaterialAcademicoEntity material = materialAcademicoService.getMaterialAcademico(id).orElse(null);
+        if (material == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                new ErrorResponseDTO("MATERIAL_ACADEMICO_NOT_FOUND", "No se encontró el material académico"));
+        }
+        return ResponseEntity.status(HttpStatus.OK).body(material);
     }
 }

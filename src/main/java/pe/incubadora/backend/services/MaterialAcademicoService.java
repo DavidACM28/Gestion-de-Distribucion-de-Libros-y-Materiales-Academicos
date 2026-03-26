@@ -10,6 +10,8 @@ import pe.incubadora.backend.entities.MaterialAcademicoEntity;
 import pe.incubadora.backend.repositories.MaterialAcademicoRepository;
 import pe.incubadora.backend.utils.materialAcademico.*;
 
+import java.util.Optional;
+
 @Service
 public class MaterialAcademicoService {
     @Autowired
@@ -66,6 +68,10 @@ public class MaterialAcademicoService {
 
     public Page<MaterialAcademicoEntity> getMaterialesAcademicos(Pageable page) {
         return materialAcademicoRepository.findAll(page);
+    }
+
+    public Optional<MaterialAcademicoEntity> getMaterialAcademico(Long id) {
+        return materialAcademicoRepository.findById(id);
     }
 
     private UpdateMaterialAcademicoResult validateMaterialAcademicoDTO(MaterialAcademicoDTO dto) {
