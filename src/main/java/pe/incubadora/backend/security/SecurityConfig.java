@@ -105,7 +105,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(authorizeRequests ->
                 authorizeRequests
                     .requestMatchers(
-                        "/api/v1/auth/login",
+                        "/api/v1/auth/**",
                         "/swagger-ui/**",
                         "/v3/api-docs/**")
                     .permitAll()
