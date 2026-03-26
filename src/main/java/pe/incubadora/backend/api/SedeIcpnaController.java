@@ -9,13 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import pe.incubadora.backend.dtos.ErrorResponseDTO;
 import pe.incubadora.backend.dtos.SedeIcpnaDTO;
 import pe.incubadora.backend.entities.SedeIcpnaEntity;
@@ -24,6 +18,7 @@ import pe.incubadora.backend.services.SedeIcpnaService;
 import pe.incubadora.backend.services.UsuarioService;
 import pe.incubadora.backend.utils.CreateSedeResult;
 import pe.incubadora.backend.utils.Rol;
+import pe.incubadora.backend.utils.UpdateSedeResult;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -52,6 +47,33 @@ public class SedeIcpnaController {
                 case ESTADO_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                     new ErrorResponseDTO("VALIDATION_ERROR", "El estado no es válido"));
                 case CREATED -> ResponseEntity.status(HttpStatus.CREATED).body("Se creó la sede con éxito");
+            };
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                new ErrorResponseDTO("CODIGO_CONFLICT", "Ya existe una sede con este código"));
+        }
+    }
+
+    @PutMapping("/sedes/{id}")
+    public ResponseEntity<Object> updateSede(@RequestBody SedeIcpnaDTO dto, @PathVariable Long id) {
+        try {
+            UpdateSedeResult resultado = sedeIcpnaService.updateSede(dto, id);
+            return switch (resultado) {
+                case SEDE_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    new ErrorResponseDTO("SEDE_NOT_FOUND", "No se encontró la sede"));
+                case CODIGO_EMPTY -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "El código no puede ser vacío"));
+                case NOMBRE_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "El nombre debe contener 3 caracteres como mínimo"));
+                case CIUDAD_EMPTY -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "La ciudad no puede ser vacía"));
+                case DIRECCION_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "La dirección debe contener 5 caracteres como mínimo"));
+                case RESPONSABLE_EMPTY -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "El responsable no puede ser vacío"));
+                case ESTADO_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "Estado inválido, use: ACTIVA | INACTIVA | SUSPENDIDA"));
+                case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se actualizó con éxito");
             };
         } catch (DataIntegrityViolationException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(

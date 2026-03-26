@@ -12,6 +12,7 @@ import pe.incubadora.backend.repositories.SedeIcpnaRepository;
 import pe.incubadora.backend.utils.CreateSedeResult;
 import pe.incubadora.backend.utils.Rol;
 import pe.incubadora.backend.utils.SedeEstado;
+import pe.incubadora.backend.utils.UpdateSedeResult;
 
 import java.util.List;
 import java.util.Objects;
@@ -42,6 +43,21 @@ public class SedeIcpnaService {
         return CreateSedeResult.CREATED;
     }
 
+    @Transactional
+    public UpdateSedeResult updateSede(SedeIcpnaDTO dto, Long id) {
+        SedeIcpnaEntity sede = sedeIcpnaRepository.findById(id).orElse(null);
+        if (sede == null) {
+            return UpdateSedeResult.SEDE_NOT_FOUND;
+        }
+        UpdateSedeResult result = validateSedeDTO(dto);
+        if (result != null) {
+            return result;
+        }
+        applyChanges(dto, sede);
+        sedeIcpnaRepository.save(sede);
+        return UpdateSedeResult.UPDATED;
+    }
+
     public Page<SedeIcpnaEntity> getSedes(Pageable page, Rol rol, Long sedeId) {
         if (rol == Rol.SEDE) {
             if (sedeId == null) {
@@ -63,5 +79,65 @@ public class SedeIcpnaService {
             }
         }
         return sedeIcpnaRepository.findById(sedeId);
+    }
+
+    private UpdateSedeResult validateSedeDTO(SedeIcpnaDTO dto) {
+        if (dto.getCodigo() != null) {
+            if (dto.getCodigo().trim().isEmpty()) {
+                return UpdateSedeResult.CODIGO_EMPTY;
+            }
+        }
+        if (dto.getNombre() != null) {
+            if (dto.getNombre().trim().length() < 3) {
+                return UpdateSedeResult.NOMBRE_NOT_VALID;
+            }
+        }
+        if (dto.getCiudad() != null) {
+            if (dto.getCiudad().trim().isEmpty()) {
+                return UpdateSedeResult.CIUDAD_EMPTY;
+            }
+        }
+        if (dto.getDireccion() != null) {
+            if (dto.getDireccion().trim().length() < 5) {
+                return UpdateSedeResult.DIRECCION_NOT_VALID;
+            }
+        }
+        if (dto.getResponsableLogistica() != null) {
+            if (dto.getResponsableLogistica().trim().isEmpty()) {
+                return  UpdateSedeResult.RESPONSABLE_EMPTY;
+            }
+        }
+        if  (dto.getEstado() != null) {
+            try {
+                SedeEstado.valueOf(dto.getEstado().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return UpdateSedeResult.ESTADO_NOT_VALID;
+            }
+        }
+        return null;
+    }
+
+    private void applyChanges(SedeIcpnaDTO dto, SedeIcpnaEntity sede) {
+        if (dto.getCodigo() != null) {
+            sede.setCodigo(dto.getCodigo());
+        }
+        if (dto.getNombre() != null) {
+            sede.setNombre(dto.getNombre());
+        }
+        if (dto.getCiudad() != null) {
+            sede.setCiudad(dto.getCiudad());
+        }
+        if (dto.getDireccion() != null) {
+            sede.setDireccion(dto.getDireccion());
+        }
+        if (dto.getResponsableLogistica() != null) {
+            sede.setResponsableLogistica(dto.getResponsableLogistica());
+        }
+        if (dto.getEstado() != null) {
+            sede.setEstado(dto.getEstado().toUpperCase());
+        }
+        if (dto.getContacto() != null) {
+            sede.setContacto(dto.getContacto());
+        }
     }
 }

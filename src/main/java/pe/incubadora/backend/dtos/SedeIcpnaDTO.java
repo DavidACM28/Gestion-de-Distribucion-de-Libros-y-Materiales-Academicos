@@ -19,10 +19,10 @@ public class SedeIcpnaDTO {
     private String nombre;
 
     @NotBlank(message = "La ciudad es obligatoria")
-    @Size(min = 5, message = "La ciudad debe tener 5 caracteres como mínimo")
     private String ciudad;
 
     @NotBlank(message = "La dirección es obligatoria")
+    @Size(min = 5, message = "La dirección debe tener 5 caracteres como mínimo")
     private String direccion;
 
     @NotBlank(message = "El responsable es obligatorio")

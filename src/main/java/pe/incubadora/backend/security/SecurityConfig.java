@@ -107,6 +107,9 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.POST,
                         "/api/v1/sedes"
                     ).hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.PUT,
+                        "/api/v1/sedes/{id}"
+                    ).hasRole("ADMIN")
                     .requestMatchers(
                         "/api/v1/auth/**",
                         "/swagger-ui/**",
