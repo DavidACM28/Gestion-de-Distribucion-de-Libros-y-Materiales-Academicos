@@ -6,14 +6,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import pe.incubadora.backend.dtos.ErrorResponseDTO;
 import pe.incubadora.backend.dtos.MaterialAcademicoDTO;
 import pe.incubadora.backend.services.MaterialAcademicoService;
 import pe.incubadora.backend.utils.materialAcademico.CreateMaterialAcademicoResult;
+import pe.incubadora.backend.utils.materialAcademico.UpdateMaterialAcademicoResult;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -53,6 +51,39 @@ public class MaterialAcademicoController {
                     ResponseEntity.status(HttpStatus.CREATED).body("Se creó el material académico con éxito");
             };
 
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                new ErrorResponseDTO("SKU_CONFLICT", "Ya existe un material con este SKU"));
+        }
+    }
+
+    @PutMapping("/materiales/{id}")
+    public ResponseEntity<Object> updateMaterial(@RequestBody MaterialAcademicoDTO dto, @PathVariable Long id) {
+        try {
+            UpdateMaterialAcademicoResult result = materialAcademicoService.updateMaterialAcademico(dto, id);
+            return switch (result) {
+                case MATERIAL_ACADEMICO_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    new ErrorResponseDTO("MATERIAL_ACADEMICO_NOT_FOUND", "No se encontró el material académico"));
+                case SKU_EMPTY -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "El SKU no puede ser vacío"));
+                case NOMBRE_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "El nombre debe tener 3 caracteres como mínimo"));
+                case CATEGORIA_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO(
+                        "VALIDATION_ERROR",
+                        "Categoría inválida, use: STUDENT_BOOK, WORKBOOK, READER, EXAM_PACK, DICCIONARIO. OTROS"));
+                case NIVEL_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO(
+                        "VALIDATION_ERROR",
+                        "Nivel inválido, use: BASICO, INTERMEDIO, AVANZADO, KIDS, JUNIORS, GENERAL"));
+                case UNIDAD_MEDIDA_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO(
+                        "VALIDATION_ERROR",
+                        "Unidad de medida inválida, use: UNIDAD, PAQUETE, CAJA, KIT"));
+                case STOCK_MINIMO_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "El stock mínimo debe ser mayor o igual a 0"));
+                case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se actualizó con éxito");
+            };
         } catch (DataIntegrityViolationException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(
                 new ErrorResponseDTO("SKU_CONFLICT", "Ya existe un material con este SKU"));

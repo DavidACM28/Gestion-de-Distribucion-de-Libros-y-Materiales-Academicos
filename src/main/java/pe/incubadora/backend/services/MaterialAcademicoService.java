@@ -6,10 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.incubadora.backend.dtos.MaterialAcademicoDTO;
 import pe.incubadora.backend.entities.MaterialAcademicoEntity;
 import pe.incubadora.backend.repositories.MaterialAcademicoRepository;
-import pe.incubadora.backend.utils.materialAcademico.CreateMaterialAcademicoResult;
-import pe.incubadora.backend.utils.materialAcademico.MaterialAcademicoCategoria;
-import pe.incubadora.backend.utils.materialAcademico.MaterialAcademicoNivel;
-import pe.incubadora.backend.utils.materialAcademico.MaterialAcademicoUnidadMedida;
+import pe.incubadora.backend.utils.materialAcademico.*;
 
 @Service
 public class MaterialAcademicoService {
@@ -48,5 +45,87 @@ public class MaterialAcademicoService {
         materialAcademico.setActivo(dto.getActivo());
         materialAcademicoRepository.save(materialAcademico);
         return CreateMaterialAcademicoResult.CREATED;
+    }
+
+    @Transactional
+    public UpdateMaterialAcademicoResult updateMaterialAcademico(MaterialAcademicoDTO dto, Long id) {
+        MaterialAcademicoEntity materialAcademico = materialAcademicoRepository.findById(id).orElse(null);
+        if (materialAcademico == null) {
+            return UpdateMaterialAcademicoResult.MATERIAL_ACADEMICO_NOT_FOUND;
+        }
+        UpdateMaterialAcademicoResult result = validateMaterialAcademicoDTO(dto);
+        if (result != null) {
+            return result;
+        }
+        applyChanges(dto, materialAcademico);
+        materialAcademicoRepository.save(materialAcademico);
+        return UpdateMaterialAcademicoResult.UPDATED;
+    }
+
+    private UpdateMaterialAcademicoResult validateMaterialAcademicoDTO(MaterialAcademicoDTO dto) {
+        if (dto.getSku() != null) {
+            if (dto.getSku().trim().isEmpty()) {
+                return UpdateMaterialAcademicoResult.SKU_EMPTY;
+            }
+        }
+        if (dto.getNombre() != null) {
+            if (dto.getNombre().trim().length() < 3) {
+                return UpdateMaterialAcademicoResult.NOMBRE_NOT_VALID;
+            }
+        }
+        if (dto.getCategoria() != null) {
+            try {
+                MaterialAcademicoCategoria.valueOf(dto.getCategoria().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return UpdateMaterialAcademicoResult.CATEGORIA_NOT_VALID;
+            }
+        }
+        if (dto.getNivel() != null) {
+            try {
+                MaterialAcademicoNivel.valueOf(dto.getNivel().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return UpdateMaterialAcademicoResult.NIVEL_NOT_VALID;
+            }
+        }
+        if (dto.getUnidadMedida() != null) {
+            try {
+                MaterialAcademicoUnidadMedida.valueOf(dto.getUnidadMedida().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return UpdateMaterialAcademicoResult.UNIDAD_MEDIDA_NOT_VALID;
+            }
+        }
+        if (dto.getStockMinimo() != null) {
+            if (dto.getStockMinimo() < 0) {
+                return UpdateMaterialAcademicoResult.STOCK_MINIMO_NOT_VALID;
+            }
+        }
+        return null;
+    }
+
+    private void applyChanges(MaterialAcademicoDTO dto, MaterialAcademicoEntity material) {
+        if (dto.getSku() != null) {
+            material.setSku(dto.getSku());
+        }
+        if (dto.getNombre() != null) {
+            material.setNombre(dto.getNombre());
+        }
+        if (dto.getCategoria() != null) {
+            material.setCategoria(dto.getCategoria().toUpperCase());
+        }
+        if (dto.getNivel() != null) {
+            material.setNivel(dto.getNivel().toUpperCase());
+        }
+        if (dto.getUnidadMedida() != null) {
+            material.setUnidadMedida(dto.getUnidadMedida().toUpperCase());
+        }
+        if (dto.getStockMinimo() != null) {
+            material.setStockMinimo(dto.getStockMinimo());
+        }
+        if (dto.getControlVigencia() != null) {
+            material.setControlVigencia(dto.getControlVigencia());
+        }
+        if (dto.getActivo() != null) {
+            material.setActivo(dto.getActivo());
+        }
     }
 }
