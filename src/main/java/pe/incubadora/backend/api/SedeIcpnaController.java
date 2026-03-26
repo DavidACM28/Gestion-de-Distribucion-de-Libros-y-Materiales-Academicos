@@ -9,9 +9,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import pe.incubadora.backend.dtos.ErrorResponseDTO;
 import pe.incubadora.backend.dtos.SedeIcpnaDTO;
+import pe.incubadora.backend.entities.SedeIcpnaEntity;
 import pe.incubadora.backend.entities.UsuarioEntity;
 import pe.incubadora.backend.services.SedeIcpnaService;
 import pe.incubadora.backend.services.UsuarioService;
@@ -55,23 +62,55 @@ public class SedeIcpnaController {
     @GetMapping("/sedes")
     public ResponseEntity<Object> getSedes(@RequestParam int page, Authentication authentication) {
         Pageable pageable = Pageable.ofSize(10).withPage(page);
+        Rol rol = obtenerRol(authentication);
+        Long sedeId = obtenerSedeIdUsuario(authentication, rol);
 
+        if (rol == Rol.SEDE && sedeId == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                new ErrorResponseDTO("FORBIDDEN", "El usuario no tiene una sede asociada"));
+        }
+
+        return ResponseEntity.ok().body(sedeIcpnaService.getSedes(pageable, rol, sedeId));
+    }
+
+    @GetMapping("/sedes/{idSede}")
+    public ResponseEntity<Object> getSedeById(@PathVariable Long idSede, Authentication authentication) {
+        Rol rol = obtenerRol(authentication);
+        Long sedeIdUsuario = obtenerSedeIdUsuario(authentication, rol);
+
+        if (rol == Rol.SEDE && sedeIdUsuario == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                new ErrorResponseDTO("FORBIDDEN", "El usuario no tiene una sede asociada"));
+        }
+
+        SedeIcpnaEntity sede = sedeIcpnaService.getSedeById(rol, idSede, sedeIdUsuario).orElse(null);
+        if (sede == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                new ErrorResponseDTO("SEDE_NOT_FOUND", "No se encontró la sede"));
+        }
+
+        return ResponseEntity.ok().body(sede);
+    }
+
+    private Rol obtenerRol(Authentication authentication) {
         String authority = authentication.getAuthorities().stream()
             .map(GrantedAuthority::getAuthority)
             .findFirst()
             .orElseThrow();
 
-        Rol rol = Rol.valueOf(authority.replace("ROLE_", ""));
-        Long sedeId = null;
+        return Rol.valueOf(authority.replace("ROLE_", ""));
+    }
 
-        if (rol == Rol.SEDE) {
-            UsuarioEntity usuario = usuarioService.findByUsername(authentication.getName());
-            if (usuario == null || usuario.getSede() == null) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
-                    new ErrorResponseDTO("FORBIDDEN", "El usuario no tiene una sede asociada"));
-            }
-            sedeId = usuario.getSede().getId();
+    private Long obtenerSedeIdUsuario(Authentication authentication, Rol rol) {
+        if (rol != Rol.SEDE) {
+            return null;
         }
-        return ResponseEntity.ok().body(sedeIcpnaService.getSedes(pageable, rol, sedeId));
+
+        UsuarioEntity usuario = usuarioService.findByUsername(authentication.getName());
+        if (usuario == null || usuario.getSede() == null) {
+            return null;
+        }
+
+        return usuario.getSede().getId();
     }
 }

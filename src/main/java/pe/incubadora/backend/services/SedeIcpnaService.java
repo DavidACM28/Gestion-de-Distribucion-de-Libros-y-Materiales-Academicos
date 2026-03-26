@@ -14,6 +14,8 @@ import pe.incubadora.backend.utils.Rol;
 import pe.incubadora.backend.utils.SedeEstado;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Service
 public class SedeIcpnaService {
@@ -52,5 +54,14 @@ public class SedeIcpnaService {
             return new PageImpl<>(List.of(sede), page, 1);
         }
         return sedeIcpnaRepository.findAll(page);
+    }
+
+    public Optional<SedeIcpnaEntity> getSedeById(Rol rol, Long sedeId, Long sedeIdUsuario) {
+        if (rol == Rol.SEDE) {
+            if (!Objects.equals(sedeId, sedeIdUsuario)) {
+                return Optional.empty();
+            }
+        }
+        return sedeIcpnaRepository.findById(sedeId);
     }
 }
