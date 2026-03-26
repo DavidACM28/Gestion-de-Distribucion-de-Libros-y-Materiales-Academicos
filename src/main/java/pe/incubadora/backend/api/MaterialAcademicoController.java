@@ -3,6 +3,7 @@ package pe.incubadora.backend.api;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
@@ -88,5 +89,11 @@ public class MaterialAcademicoController {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(
                 new ErrorResponseDTO("SKU_CONFLICT", "Ya existe un material con este SKU"));
         }
+    }
+
+    @GetMapping("/materiales")
+    public ResponseEntity<Object> getMateriales(@RequestParam int page) {
+        Pageable pageable = Pageable.ofSize(10).withPage(page);
+        return ResponseEntity.status(HttpStatus.OK).body(materialAcademicoService.getMaterialesAcademicos(pageable));
     }
 }
