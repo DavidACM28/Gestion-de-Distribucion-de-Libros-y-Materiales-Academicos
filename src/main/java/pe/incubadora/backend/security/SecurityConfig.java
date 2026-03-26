@@ -104,6 +104,9 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(authorizeRequests ->
                 authorizeRequests
+                    .requestMatchers(HttpMethod.POST,
+                        "/api/v1/sedes"
+                    ).hasRole("ADMIN")
                     .requestMatchers(
                         "/api/v1/auth/**",
                         "/swagger-ui/**",
