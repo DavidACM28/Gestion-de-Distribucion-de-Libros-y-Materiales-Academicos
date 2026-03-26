@@ -16,9 +16,9 @@ import pe.incubadora.backend.entities.SedeIcpnaEntity;
 import pe.incubadora.backend.entities.UsuarioEntity;
 import pe.incubadora.backend.services.SedeIcpnaService;
 import pe.incubadora.backend.services.UsuarioService;
-import pe.incubadora.backend.utils.CreateSedeResult;
+import pe.incubadora.backend.utils.sedeIcpna.CreateSedeResult;
 import pe.incubadora.backend.utils.Rol;
-import pe.incubadora.backend.utils.UpdateSedeResult;
+import pe.incubadora.backend.utils.sedeIcpna.UpdateSedeResult;
 
 import java.util.HashMap;
 import java.util.Map;

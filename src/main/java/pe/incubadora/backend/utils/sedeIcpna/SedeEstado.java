@@ -1,4 +1,4 @@
-package pe.incubadora.backend.utils;
+package pe.incubadora.backend.utils.sedeIcpna;
 
 public enum SedeEstado {
     ACTIVA,

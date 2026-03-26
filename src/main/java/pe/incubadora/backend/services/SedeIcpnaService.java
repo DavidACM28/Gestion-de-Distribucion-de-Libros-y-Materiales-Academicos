@@ -9,10 +9,10 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.incubadora.backend.dtos.SedeIcpnaDTO;
 import pe.incubadora.backend.entities.SedeIcpnaEntity;
 import pe.incubadora.backend.repositories.SedeIcpnaRepository;
-import pe.incubadora.backend.utils.CreateSedeResult;
+import pe.incubadora.backend.utils.sedeIcpna.CreateSedeResult;
 import pe.incubadora.backend.utils.Rol;
-import pe.incubadora.backend.utils.SedeEstado;
-import pe.incubadora.backend.utils.UpdateSedeResult;
+import pe.incubadora.backend.utils.sedeIcpna.SedeEstado;
+import pe.incubadora.backend.utils.sedeIcpna.UpdateSedeResult;
 
 import java.util.List;
 import java.util.Objects;
