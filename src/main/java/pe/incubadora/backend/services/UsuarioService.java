@@ -58,4 +58,8 @@ public class UsuarioService {
         usuarioRepository.save(usuario);
         return RegisterUsuarioResult.CREATED;
     }
+
+    public UsuarioEntity findByUsername(String username) {
+        return usuarioRepository.findByUsername(username).orElse(null);
+    }
 }

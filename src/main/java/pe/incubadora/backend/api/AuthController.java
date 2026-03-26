@@ -5,13 +5,23 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import pe.incubadora.backend.dtos.ErrorResponseDTO;
+import pe.incubadora.backend.dtos.UsuarioDTO;
+import pe.incubadora.backend.dtos.auth.LoginAdministrativoResponseDTO;
+import pe.incubadora.backend.dtos.auth.LoginDTO;
+import pe.incubadora.backend.dtos.auth.LoginSedeResponseDTO;
 import pe.incubadora.backend.dtos.auth.RegisterDTO;
+import pe.incubadora.backend.entities.UsuarioEntity;
+import pe.incubadora.backend.security.JwtGenerador;
 import pe.incubadora.backend.services.UsuarioService;
 import pe.incubadora.backend.utils.RegisterUsuarioResult;
 
@@ -24,7 +34,10 @@ public class AuthController {
 
     @Autowired
     UsuarioService usuarioService;
-
+    @Autowired
+    AuthenticationManager authenticationManager;
+    @Autowired
+    JwtGenerador jwtGenerador;
 
     @PostMapping("/register")
     public ResponseEntity<Object> register(@Valid @RequestBody RegisterDTO registerDTO, BindingResult result) {
@@ -53,5 +66,32 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(
                 new ErrorResponseDTO("USERNAME_CONFLICT", "El nombre de usuario ya existe"));
         }
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<Object> login(@RequestBody LoginDTO loginDTO) {
+        Authentication authentication =
+            authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(loginDTO.getUsername(), loginDTO.getPassword()));
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String token = jwtGenerador.generarToken(authentication);
+        UsuarioEntity usuarioEntity = usuarioService.findByUsername(loginDTO.getUsername());
+        if (usuarioEntity == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                new ErrorResponseDTO("VALIDATION_ERROR", "El usuario no existe"));
+        }
+        if (usuarioEntity.getSede() == null) {
+            return ResponseEntity.status(HttpStatus.OK).body(
+                new LoginAdministrativoResponseDTO(token, "Bearer "));
+        }
+        return ResponseEntity.status(HttpStatus.OK).body(new LoginSedeResponseDTO(token, "Bearer ",
+            new UsuarioDTO(
+                usuarioEntity.getId(),
+                usuarioEntity.getSede(),
+                usuarioEntity.getUsername(),
+                usuarioEntity.getRol(),
+                usuarioEntity.isActivo()
+            )));
     }
 }
