@@ -1,13 +1,19 @@
 package pe.incubadora.backend.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.incubadora.backend.dtos.SedeIcpnaDTO;
 import pe.incubadora.backend.entities.SedeIcpnaEntity;
 import pe.incubadora.backend.repositories.SedeIcpnaRepository;
 import pe.incubadora.backend.utils.CreateSedeResult;
+import pe.incubadora.backend.utils.Rol;
 import pe.incubadora.backend.utils.SedeEstado;
+
+import java.util.List;
 
 @Service
 public class SedeIcpnaService {
@@ -32,5 +38,19 @@ public class SedeIcpnaService {
         sede.setEstado(estado.name());
         sedeIcpnaRepository.save(sede);
         return CreateSedeResult.CREATED;
+    }
+
+    public Page<SedeIcpnaEntity> getSedes(Pageable page, Rol rol, Long sedeId) {
+        if (rol == Rol.SEDE) {
+            if (sedeId == null) {
+                return Page.empty(page);
+            }
+            SedeIcpnaEntity sede = sedeIcpnaRepository.findById(sedeId).orElse(null);
+            if (sede == null) {
+                return Page.empty(page);
+            }
+            return new PageImpl<>(List.of(sede), page, 1);
+        }
+        return sedeIcpnaRepository.findAll(page);
     }
 }
