@@ -31,6 +31,8 @@ public class LoteIngresoEntity {
     private MaterialAcademicoEntity materialAcademico;
 
     private LocalDate fechaIngreso;
+    private String edicion;
+    private LocalDate fechaVigencia;
     private Integer cantidadIngresada;
     private Integer cantidadDisponible;
     private String proveedor;
