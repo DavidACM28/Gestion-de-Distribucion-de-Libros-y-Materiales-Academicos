@@ -3,7 +3,6 @@ package pe.incubadora.backend.api;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -90,13 +89,23 @@ public class LoteIngresoController {
         return switch (resultado) {
             case LOTE_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                 new ErrorResponseDTO("LOTE_NOT_FOUND", "No se encontró lote de ingreso"));
-            case UPDATED ->  ResponseEntity.status(HttpStatus.OK).body("Se actualizó el estado a fuera de vigencia");
+            case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se actualizó el estado a fuera de vigencia");
         };
     }
 
     @GetMapping("/lotes")
-    public Page<LoteIngresoEntity> getLotes(@RequestParam int page) {
+    public ResponseEntity<Object> getLotes(@RequestParam int page) {
         Pageable pageable = Pageable.ofSize(10).withPage(page);
-        return loteIngresoService.getLotes(pageable);
+        return ResponseEntity.status(HttpStatus.OK).body(loteIngresoService.getLotes(pageable));
+    }
+
+    @GetMapping("/lotes/{id}")
+    public ResponseEntity<Object> getLoteIngresoById(@PathVariable Long id) {
+        LoteIngresoEntity lote = loteIngresoService.getLoteIngresoById(id).orElse(null);
+        if (lote == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                new ErrorResponseDTO("LOTE_NOT_FOUND", "No se encontró el lote"));
+        }
+        return ResponseEntity.status(HttpStatus.OK).body(lote);
     }
 }

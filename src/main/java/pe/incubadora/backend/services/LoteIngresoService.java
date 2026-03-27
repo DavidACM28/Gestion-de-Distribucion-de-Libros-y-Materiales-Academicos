@@ -17,6 +17,7 @@ import pe.incubadora.backend.utils.loteIngreso.UpdateLoteIngresoResult;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.Optional;
 
 @Service
 public class LoteIngresoService {
@@ -99,6 +100,10 @@ public class LoteIngresoService {
 
     public Page<LoteIngresoEntity> getLotes(Pageable page) {
         return loteIngresoRepository.findAll(page);
+    }
+
+    public Optional<LoteIngresoEntity> getLoteIngresoById(Long id) {
+        return loteIngresoRepository.findById(id);
     }
 
     private UpdateLoteIngresoResult validateLoteIngresoDTO(
