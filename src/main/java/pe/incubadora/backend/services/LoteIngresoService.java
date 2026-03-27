@@ -1,6 +1,8 @@
 package pe.incubadora.backend.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.incubadora.backend.dtos.LoteIngresoDTO;
@@ -93,6 +95,10 @@ public class LoteIngresoService {
         loteIngreso.setEstado(LoteIngresoEstado.FUERA_VIGENCIA.name());
         loteIngresoRepository.save(loteIngreso);
         return LoteFueraDeVigenciaResult.UPDATED;
+    }
+
+    public Page<LoteIngresoEntity> getLotes(Pageable page) {
+        return loteIngresoRepository.findAll(page);
     }
 
     private UpdateLoteIngresoResult validateLoteIngresoDTO(
