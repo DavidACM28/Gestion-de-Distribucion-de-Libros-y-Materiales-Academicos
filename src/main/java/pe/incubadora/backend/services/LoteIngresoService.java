@@ -9,6 +9,7 @@ import pe.incubadora.backend.entities.MaterialAcademicoEntity;
 import pe.incubadora.backend.repositories.LoteIngresoRepository;
 import pe.incubadora.backend.repositories.MaterialAcademicoRepository;
 import pe.incubadora.backend.utils.loteIngreso.CreateLoteIngresoResult;
+import pe.incubadora.backend.utils.loteIngreso.LoteFueraDeVigenciaResult;
 import pe.incubadora.backend.utils.loteIngreso.LoteIngresoEstado;
 import pe.incubadora.backend.utils.loteIngreso.UpdateLoteIngresoResult;
 
@@ -81,6 +82,17 @@ public class LoteIngresoService {
         applyChanges(dto, loteIngreso, material);
         loteIngresoRepository.save(loteIngreso);
         return UpdateLoteIngresoResult.UPDATED;
+    }
+
+    @Transactional
+    public LoteFueraDeVigenciaResult fueraDeVigenciaLoteIngreso(Long id) {
+        LoteIngresoEntity loteIngreso = loteIngresoRepository.findById(id).orElse(null);
+        if (loteIngreso == null) {
+            return LoteFueraDeVigenciaResult.LOTE_NOT_FOUND;
+        }
+        loteIngreso.setEstado(LoteIngresoEstado.FUERA_VIGENCIA.name());
+        loteIngresoRepository.save(loteIngreso);
+        return LoteFueraDeVigenciaResult.UPDATED;
     }
 
     private UpdateLoteIngresoResult validateLoteIngresoDTO(
