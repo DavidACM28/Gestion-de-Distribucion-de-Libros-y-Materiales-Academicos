@@ -12,6 +12,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import pe.incubadora.backend.dtos.AprobarSolicitudDTO;
 import pe.incubadora.backend.dtos.ErrorResponseDTO;
 import pe.incubadora.backend.dtos.ObservarSolicitudDTO;
 import pe.incubadora.backend.dtos.SolicitudDistribucionDTO;
@@ -20,6 +21,7 @@ import pe.incubadora.backend.entities.UsuarioEntity;
 import pe.incubadora.backend.services.SolicitudDistribucionService;
 import pe.incubadora.backend.services.UsuarioService;
 import pe.incubadora.backend.utils.Rol;
+import pe.incubadora.backend.utils.solicitudDistribucion.AprobarSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.CancelarSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.CreateSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.EnviarSolicitudDistribucionResult;
@@ -201,7 +203,7 @@ public class SolicitudDistribucionController {
                 new ErrorResponseDTO("SOLICITUD_NOT_FOUND", "No se encontró la solicitud"));
             case ESTADO_INVALIDO -> ResponseEntity.status(HttpStatus.CONFLICT).body(
                 new ErrorResponseDTO("ESTADO_INVALIDO", "La solicitud solo puede enviarse si está en BORRADOR u OBSERVADA"));
-            case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se enviÃ³ la solicitud con éxito");
+            case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se envió la solicitud con éxito");
         };
     }
 
@@ -250,6 +252,31 @@ public class SolicitudDistribucionController {
             case ESTADO_INVALIDO -> ResponseEntity.status(HttpStatus.CONFLICT).body(
                 new ErrorResponseDTO("ESTADO_INVALIDO", "La solicitud no puede cancelarse si está en DESPACHADA, ENTREGADA o PARCIAL"));
             case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se canceló la solicitud con éxito");
+        };
+    }
+
+    @PatchMapping("/solicitudes/{id}/aprobar")
+    public ResponseEntity<Object> aprobarSolicitudDistribucion(
+        @PathVariable Long id, @RequestBody AprobarSolicitudDTO dto) {
+        AprobarSolicitudDistribucionResult resultado =
+            solicitudDistribucionService.aprobarSolicitudDistribucion(id, dto);
+
+        return switch (resultado) {
+            case SOLICITUD_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                new ErrorResponseDTO("SOLICITUD_NOT_FOUND", "No se encontró la solicitud"));
+            case ITEMS_EMPTY -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                new ErrorResponseDTO("VALIDATION_ERROR", "La aprobación debe incluir al menos un item"));
+            case DETALLE_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                new ErrorResponseDTO("DETALLE_NOT_FOUND", "No se encontró el detalle de la solicitud"));
+            case DETALLE_NOT_BELONG_TO_SOLICITUD -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                new ErrorResponseDTO("VALIDATION_ERROR", "El detalle no pertenece a la solicitud"));
+            case CANTIDAD_APROBADA_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                new ErrorResponseDTO("VALIDATION_ERROR", "La cantidad aprobada debe ser mayor o igual a 0, no superar la cantidad solicitada y al menos un item debe aprobarse"));
+            case ESTADO_INVALIDO -> ResponseEntity.status(HttpStatus.CONFLICT).body(
+                new ErrorResponseDTO("ESTADO_INVALIDO", "La solicitud solo puede aprobarse si está en ENVIADA u OBSERVADA"));
+            case STOCK_INSUFFICIENT -> ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(
+                new ErrorResponseDTO("STOCK_INSUFFICIENT", "La cantidad aprobada supera el stock disponible del material"));
+            case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se aprobó la solicitud con éxito");
         };
     }
 

@@ -10,15 +10,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.incubadora.backend.dtos.SolicitudDistribucionDTO;
 import pe.incubadora.backend.dtos.SolicitudDistribucionDetalleDTO;
+import pe.incubadora.backend.dtos.AprobarSolicitudDTO;
+import pe.incubadora.backend.dtos.AprobarSolicitudDetalleDTO;
 import pe.incubadora.backend.entities.MaterialAcademicoEntity;
 import pe.incubadora.backend.entities.SedeIcpnaEntity;
 import pe.incubadora.backend.entities.SolicitudDistribucionDetalleEntity;
 import pe.incubadora.backend.entities.SolicitudDistribucionEntity;
+import pe.incubadora.backend.repositories.LoteIngresoRepository;
 import pe.incubadora.backend.repositories.MaterialAcademicoRepository;
 import pe.incubadora.backend.repositories.SedeIcpnaRepository;
 import pe.incubadora.backend.repositories.SolicitudDistribucionDetalleRepository;
 import pe.incubadora.backend.repositories.SolicitudDistribucionRepository;
 import pe.incubadora.backend.utils.sedeIcpna.SedeEstado;
+import pe.incubadora.backend.utils.loteIngreso.LoteIngresoEstado;
+import pe.incubadora.backend.utils.solicitudDistribucion.AprobarSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.CancelarSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.CreateSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.EnviarSolicitudDistribucionResult;
@@ -44,6 +49,8 @@ public class SolicitudDistribucionService {
     private SedeIcpnaRepository sedeIcpnaRepository;
     @Autowired
     private MaterialAcademicoRepository materialAcademicoRepository;
+    @Autowired
+    private LoteIngresoRepository loteIngresoRepository;
 
     @Transactional
     public CreateSolicitudDistribucionResult createSolicitudDistribucion(SolicitudDistribucionDTO dto) {
@@ -193,6 +200,36 @@ public class SolicitudDistribucionService {
         return CancelarSolicitudDistribucionResult.UPDATED;
     }
 
+    @Transactional
+    public AprobarSolicitudDistribucionResult aprobarSolicitudDistribucion(Long id, AprobarSolicitudDTO dto) {
+        SolicitudDistribucionEntity solicitud = solicitudDistribucionRepository.findById(id).orElse(null);
+        if (solicitud == null) {
+            return AprobarSolicitudDistribucionResult.SOLICITUD_NOT_FOUND;
+        }
+
+        if (!SolicitudDistribucionEstado.ENVIADA.name().equalsIgnoreCase(solicitud.getEstado())
+            && !SolicitudDistribucionEstado.OBSERVADA.name().equalsIgnoreCase(solicitud.getEstado())) {
+            return AprobarSolicitudDistribucionResult.ESTADO_INVALIDO;
+        }
+
+        if (dto == null || dto.getItems() == null || dto.getItems().isEmpty()) {
+            return AprobarSolicitudDistribucionResult.ITEMS_EMPTY;
+        }
+
+        AprobarSolicitudDistribucionResult validationResult = validateAprobacion(dto, solicitud.getId());
+        if (validationResult != null) {
+            return validationResult;
+        }
+
+        applyAprobacion(dto, solicitud);
+        solicitud.setEstado(SolicitudDistribucionEstado.APROBADA.name());
+        if (dto.getComentarioRevision() != null) {
+            solicitud.setComentarioRevision(dto.getComentarioRevision());
+        }
+        solicitudDistribucionRepository.save(solicitud);
+        return AprobarSolicitudDistribucionResult.UPDATED;
+    }
+
     public Optional<SolicitudDistribucionEntity> getSolicitudDistribucionById(Long id) {
         return solicitudDistribucionRepository.findById(id);
     }
@@ -245,6 +282,45 @@ public class SolicitudDistribucionService {
                 return CreateSolicitudDistribucionResult.MATERIAL_NOT_FOUND;
             }
         }
+        return null;
+    }
+
+    private AprobarSolicitudDistribucionResult validateAprobacion(AprobarSolicitudDTO dto, Long solicitudId) {
+        boolean hasApprovedItem = false;
+
+        for (AprobarSolicitudDetalleDTO item : dto.getItems()) {
+            if (item.getDetalleId() == null || item.getCantidadAprobada() == null) {
+                return AprobarSolicitudDistribucionResult.CANTIDAD_APROBADA_NOT_VALID;
+            }
+
+            SolicitudDistribucionDetalleEntity detalle =
+                solicitudDistribucionDetalleRepository.findById(item.getDetalleId()).orElse(null);
+            if (detalle == null) {
+                return AprobarSolicitudDistribucionResult.DETALLE_NOT_FOUND;
+            }
+            if (!detalle.getSolicitud().getId().equals(solicitudId)) {
+                return AprobarSolicitudDistribucionResult.DETALLE_NOT_BELONG_TO_SOLICITUD;
+            }
+            if (item.getCantidadAprobada() < 0 || item.getCantidadAprobada() > detalle.getCantidadSolicitada()) {
+                return AprobarSolicitudDistribucionResult.CANTIDAD_APROBADA_NOT_VALID;
+            }
+            if (item.getCantidadAprobada() > 0) {
+                hasApprovedItem = true;
+            }
+
+            Integer stockDisponible = loteIngresoRepository.sumCantidadDisponibleByMaterialIdAndEstado(
+                detalle.getMaterial().getId(),
+                LoteIngresoEstado.DISPONIBLE.name()
+            );
+            if (item.getCantidadAprobada() > stockDisponible) {
+                return AprobarSolicitudDistribucionResult.STOCK_INSUFFICIENT;
+            }
+        }
+
+        if (!hasApprovedItem) {
+            return AprobarSolicitudDistribucionResult.CANTIDAD_APROBADA_NOT_VALID;
+        }
+
         return null;
     }
 
@@ -342,6 +418,15 @@ public class SolicitudDistribucionService {
         }
         if (dto.getItems() != null) {
             reemplazarItems(dto, solicitud);
+        }
+    }
+
+    private void applyAprobacion(AprobarSolicitudDTO dto, SolicitudDistribucionEntity solicitud) {
+        for (AprobarSolicitudDetalleDTO item : dto.getItems()) {
+            SolicitudDistribucionDetalleEntity detalle =
+                solicitudDistribucionDetalleRepository.findById(item.getDetalleId()).orElseThrow();
+            detalle.setCantidadAprobada(item.getCantidadAprobada());
+            solicitudDistribucionDetalleRepository.save(detalle);
         }
     }
 

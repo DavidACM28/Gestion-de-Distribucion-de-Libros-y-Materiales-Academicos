@@ -136,6 +136,9 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.PATCH,
                         "/api/v1/solicitudes/{id}/cancelar"
                     ).hasAnyRole("ADMIN", "SEDE")
+                    .requestMatchers(HttpMethod.PATCH,
+                        "/api/v1/solicitudes/{id}/aprobar"
+                    ).hasAnyRole("ADMIN", "ALMACEN")
                     .requestMatchers(
                         "/api/v1/auth/**",
                         "/swagger-ui/**",

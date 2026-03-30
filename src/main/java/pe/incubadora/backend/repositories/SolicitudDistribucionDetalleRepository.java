@@ -7,4 +7,5 @@ import pe.incubadora.backend.entities.SolicitudDistribucionDetalleEntity;
 @Repository
 public interface SolicitudDistribucionDetalleRepository extends JpaRepository<SolicitudDistribucionDetalleEntity, Long> {
     void deleteBySolicitudId(Long solicitudId);
+    java.util.List<SolicitudDistribucionDetalleEntity> findBySolicitudId(Long solicitudId);
 }
