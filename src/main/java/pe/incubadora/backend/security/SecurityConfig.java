@@ -109,9 +109,11 @@ public class SecurityConfig {
                     ).hasRole("ADMIN")
                     .requestMatchers(HttpMethod.POST,
                         "/api/v1/materiales",
-                        "/api/v1/lotes",
-                        "/api/v1/solicitudes"
+                        "/api/v1/lotes"
                     ).hasAnyRole("ADMIN", "ALMACEN")
+                    .requestMatchers(HttpMethod.POST,
+                        "/api/v1/solicitudes"
+                    ).hasAnyRole("ADMIN", "SEDE")
                     .requestMatchers(HttpMethod.PUT,
                         "/api/v1/sedes/{id}"
                     ).hasRole("ADMIN")

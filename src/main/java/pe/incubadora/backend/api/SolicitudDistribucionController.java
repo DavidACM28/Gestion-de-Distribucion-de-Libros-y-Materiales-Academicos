@@ -37,7 +37,7 @@ public class SolicitudDistribucionController {
 
     @PostMapping("/solicitudes")
     public ResponseEntity<Object> createSolicitudDistribucion(
-        @Valid @RequestBody SolicitudDistribucionDTO dto, BindingResult result) {
+        @Valid @RequestBody SolicitudDistribucionDTO dto, BindingResult result, Authentication authentication) {
         if (result.hasErrors()) {
             Map<String, String> errores = new HashMap<>();
             result.getFieldErrors().forEach(error -> errores.put(error.getField(), error.getDefaultMessage()));
@@ -47,6 +47,19 @@ public class SolicitudDistribucionController {
             return ResponseEntity.badRequest().body(response);
         }
         try {
+            Rol rol = obtenerRol(authentication);
+            Long sedeIdUsuario = obtenerSedeIdUsuario(authentication, rol);
+
+            if (rol == Rol.SEDE && sedeIdUsuario == null) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                    new ErrorResponseDTO("FORBIDDEN", "El usuario no tiene una sede asociada"));
+            }
+
+            if (rol == Rol.SEDE && !sedeIdUsuario.equals(dto.getIdSede())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                    new ErrorResponseDTO("FORBIDDEN", "No puede crear solicitudes para otra sede"));
+            }
+
             CreateSolicitudDistribucionResult resultado = solicitudDistribucionService.createSolicitudDistribucion(dto);
             return switch (resultado) {
                 case SEDE_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
