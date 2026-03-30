@@ -20,6 +20,7 @@ import pe.incubadora.backend.entities.UsuarioEntity;
 import pe.incubadora.backend.services.SolicitudDistribucionService;
 import pe.incubadora.backend.services.UsuarioService;
 import pe.incubadora.backend.utils.Rol;
+import pe.incubadora.backend.utils.solicitudDistribucion.CancelarSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.CreateSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.EnviarSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.ObservarSolicitudDistribucionResult;
@@ -218,6 +219,37 @@ public class SolicitudDistribucionController {
             case ESTADO_INVALIDO -> ResponseEntity.status(HttpStatus.CONFLICT).body(
                 new ErrorResponseDTO("ESTADO_INVALIDO", "La solicitud solo puede pasar a OBSERVADA si está en ENVIADA"));
             case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se observó la solicitud con éxito");
+        };
+    }
+
+    @PatchMapping("/solicitudes/{id}/cancelar")
+    public ResponseEntity<Object> cancelarSolicitudDistribucion(@PathVariable Long id, Authentication authentication) {
+        SolicitudDistribucionEntity solicitud = solicitudDistribucionService.getSolicitudDistribucionById(id).orElse(null);
+        if (solicitud == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                new ErrorResponseDTO("SOLICITUD_NOT_FOUND", "No se encontró la solicitud"));
+        }
+
+        Rol rol = obtenerRol(authentication);
+        Long sedeIdUsuario = obtenerSedeIdUsuario(authentication, rol);
+
+        if (rol == Rol.SEDE && sedeIdUsuario == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                new ErrorResponseDTO("FORBIDDEN", "El usuario no tiene una sede asociada"));
+        }
+
+        if (rol == Rol.SEDE && !sedeIdUsuario.equals(solicitud.getSedeIcpna().getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                new ErrorResponseDTO("FORBIDDEN", "No puede cancelar solicitudes de otra sede"));
+        }
+
+        CancelarSolicitudDistribucionResult resultado = solicitudDistribucionService.cancelarSolicitudDistribucion(id);
+        return switch (resultado) {
+            case SOLICITUD_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                new ErrorResponseDTO("SOLICITUD_NOT_FOUND", "No se encontró la solicitud"));
+            case ESTADO_INVALIDO -> ResponseEntity.status(HttpStatus.CONFLICT).body(
+                new ErrorResponseDTO("ESTADO_INVALIDO", "La solicitud no puede cancelarse si está en DESPACHADA, ENTREGADA o PARCIAL"));
+            case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se canceló la solicitud con éxito");
         };
     }
 

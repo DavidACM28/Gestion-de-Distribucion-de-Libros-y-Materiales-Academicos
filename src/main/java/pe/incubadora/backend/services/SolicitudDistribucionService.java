@@ -19,6 +19,7 @@ import pe.incubadora.backend.repositories.SedeIcpnaRepository;
 import pe.incubadora.backend.repositories.SolicitudDistribucionDetalleRepository;
 import pe.incubadora.backend.repositories.SolicitudDistribucionRepository;
 import pe.incubadora.backend.utils.sedeIcpna.SedeEstado;
+import pe.incubadora.backend.utils.solicitudDistribucion.CancelarSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.CreateSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.EnviarSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.ObservarSolicitudDistribucionResult;
@@ -172,6 +173,24 @@ public class SolicitudDistribucionService {
         solicitud.setComentarioRevision(comentarioRevision.trim());
         solicitudDistribucionRepository.save(solicitud);
         return ObservarSolicitudDistribucionResult.UPDATED;
+    }
+
+    @Transactional
+    public CancelarSolicitudDistribucionResult cancelarSolicitudDistribucion(Long id) {
+        SolicitudDistribucionEntity solicitud = solicitudDistribucionRepository.findById(id).orElse(null);
+        if (solicitud == null) {
+            return CancelarSolicitudDistribucionResult.SOLICITUD_NOT_FOUND;
+        }
+
+        if (SolicitudDistribucionEstado.DESPACHADA.name().equalsIgnoreCase(solicitud.getEstado())
+            || SolicitudDistribucionEstado.ENTREGADA.name().equalsIgnoreCase(solicitud.getEstado())
+            || SolicitudDistribucionEstado.PARCIAL.name().equalsIgnoreCase(solicitud.getEstado())) {
+            return CancelarSolicitudDistribucionResult.ESTADO_INVALIDO;
+        }
+
+        solicitud.setEstado(SolicitudDistribucionEstado.CANCELADA.name());
+        solicitudDistribucionRepository.save(solicitud);
+        return CancelarSolicitudDistribucionResult.UPDATED;
     }
 
     public Optional<SolicitudDistribucionEntity> getSolicitudDistribucionById(Long id) {
