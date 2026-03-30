@@ -17,11 +17,13 @@ import pe.incubadora.backend.utils.sedeIcpna.SedeEstado;
 import pe.incubadora.backend.utils.solicitudDistribucion.CreateSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.SolicitudDistribucionEstado;
 import pe.incubadora.backend.utils.solicitudDistribucion.SolicitudDistribucionPrioridad;
+import pe.incubadora.backend.utils.solicitudDistribucion.UpdateSolicitudDistribucionResult;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -105,6 +107,32 @@ public class SolicitudDistribucionService {
         return CreateSolicitudDistribucionResult.CREATED;
     }
 
+    @Transactional
+    public UpdateSolicitudDistribucionResult updateSolicitudDistribucion(SolicitudDistribucionDTO dto, Long id) {
+        SolicitudDistribucionEntity solicitud = solicitudDistribucionRepository.findById(id).orElse(null);
+        if (solicitud == null) {
+            return UpdateSolicitudDistribucionResult.SOLICITUD_NOT_FOUND;
+        }
+
+        SedeIcpnaEntity sede = obtenerSedeParaUpdate(dto, solicitud);
+        if (sede == null) {
+            return UpdateSolicitudDistribucionResult.SEDE_NOT_FOUND;
+        }
+
+        UpdateSolicitudDistribucionResult result = validateSolicitudDistribucionDTO(dto, solicitud, sede);
+        if (result != null) {
+            return result;
+        }
+
+        applyChanges(dto, solicitud, sede);
+        solicitudDistribucionRepository.save(solicitud);
+        return UpdateSolicitudDistribucionResult.UPDATED;
+    }
+
+    public Optional<SolicitudDistribucionEntity> getSolicitudDistribucionById(Long id) {
+        return solicitudDistribucionRepository.findById(id);
+    }
+
     private CreateSolicitudDistribucionResult validateItems(SolicitudDistribucionDTO dto) {
         Set<Long> materialIds = new HashSet<>();
 
@@ -120,5 +148,133 @@ public class SolicitudDistribucionService {
             }
         }
         return null;
+    }
+
+    private UpdateSolicitudDistribucionResult validateSolicitudDistribucionDTO(
+        SolicitudDistribucionDTO dto, SolicitudDistribucionEntity solicitud,SedeIcpnaEntity sede
+    ) {
+        String periodoAcademico = solicitud.getPeriodoAcademico();
+
+        if (dto.getCodigo() != null) {
+            if (dto.getCodigo().trim().isEmpty()) {
+                return UpdateSolicitudDistribucionResult.CODIGO_EMPTY;
+            }
+        }
+
+        if (!SedeEstado.ACTIVA.name().equalsIgnoreCase(sede.getEstado())) {
+            return UpdateSolicitudDistribucionResult.SEDE_NOT_ACTIVE;
+        }
+
+        if (dto.getPeriodoAcademico() != null) {
+            if (dto.getPeriodoAcademico().trim().isEmpty()) {
+                return UpdateSolicitudDistribucionResult.PERIODO_NOT_VALID;
+            }
+            try {
+                YearMonth.parse(dto.getPeriodoAcademico().trim());
+                periodoAcademico = dto.getPeriodoAcademico().trim();
+            } catch (DateTimeParseException e) {
+                return UpdateSolicitudDistribucionResult.PERIODO_NOT_VALID;
+            }
+        }
+
+        if (dto.getPrioridad() != null) {
+            if (dto.getPrioridad().trim().isEmpty()) {
+                return UpdateSolicitudDistribucionResult.PRIORIDAD_NOT_VALID;
+            }
+            try {
+                SolicitudDistribucionPrioridad.valueOf(dto.getPrioridad().trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return UpdateSolicitudDistribucionResult.PRIORIDAD_NOT_VALID;
+            }
+        }
+
+        if (solicitudDistribucionRepository.existsBySedeIcpnaIdAndPeriodoAcademicoAndEstadoNotAndIdNot(
+            sede.getId(), periodoAcademico, SolicitudDistribucionEstado.CANCELADA.name(), solicitud.getId())) {
+            return UpdateSolicitudDistribucionResult.SOLICITUD_DUPLICADA;
+        }
+
+        if (dto.getItems() != null) {
+            if (dto.getItems().isEmpty()) {
+                return UpdateSolicitudDistribucionResult.ITEMS_EMPTY;
+            }
+            return validateUpdateItems(dto);
+        }
+
+        return null;
+    }
+
+    private UpdateSolicitudDistribucionResult validateUpdateItems(SolicitudDistribucionDTO dto) {
+        Set<Long> materialIds = new HashSet<>();
+
+        for (SolicitudDistribucionDetalleDTO item : dto.getItems()) {
+            if (item.getIdMaterial() == null) {
+                return UpdateSolicitudDistribucionResult.MATERIAL_REQUIRED;
+            }
+            if (item.getCantidadSolicitada() == null || item.getCantidadSolicitada() <= 0) {
+                return UpdateSolicitudDistribucionResult.CANTIDAD_SOLICITADA_NOT_VALID;
+            }
+            if (!materialIds.add(item.getIdMaterial())) {
+                return UpdateSolicitudDistribucionResult.MATERIAL_DUPLICATE;
+            }
+            if (materialAcademicoRepository.findById(item.getIdMaterial()).isEmpty()) {
+                return UpdateSolicitudDistribucionResult.MATERIAL_NOT_FOUND;
+            }
+        }
+
+        return null;
+    }
+
+    private void applyChanges(SolicitudDistribucionDTO dto, SolicitudDistribucionEntity solicitud, SedeIcpnaEntity sede) {
+        if (dto.getCodigo() != null) {
+            solicitud.setCodigo(dto.getCodigo());
+        }
+        if (dto.getIdSede() != null) {
+            solicitud.setSedeIcpna(sede);
+        }
+        if (dto.getPeriodoAcademico() != null) {
+            solicitud.setPeriodoAcademico(dto.getPeriodoAcademico().trim());
+        }
+        if (dto.getPrioridad() != null) {
+            SolicitudDistribucionPrioridad prioridad = SolicitudDistribucionPrioridad.valueOf(dto.getPrioridad().trim().toUpperCase());
+            solicitud.setPrioridad(prioridad.name());
+            solicitud.setFechaLimiteRevision(calcularFechaLimiteRevision(prioridad));
+        }
+        if (dto.getComentarioSolicitud() != null) {
+            solicitud.setComentarioSolicitud(dto.getComentarioSolicitud());
+        }
+        if (dto.getItems() != null) {
+            reemplazarItems(dto, solicitud);
+        }
+    }
+
+    private void reemplazarItems(SolicitudDistribucionDTO dto, SolicitudDistribucionEntity solicitud) {
+        solicitudDistribucionDetalleRepository.deleteBySolicitudId(solicitud.getId());
+
+        for (SolicitudDistribucionDetalleDTO item : dto.getItems()) {
+            MaterialAcademicoEntity material = materialAcademicoRepository.findById(item.getIdMaterial()).orElseThrow();
+
+            SolicitudDistribucionDetalleEntity detalle = new SolicitudDistribucionDetalleEntity();
+            detalle.setSolicitud(solicitud);
+            detalle.setMaterial(material);
+            detalle.setCantidadSolicitada(item.getCantidadSolicitada());
+            detalle.setCantidadAprobada(0);
+            detalle.setComentarioItem(item.getComentarioItem());
+            solicitudDistribucionDetalleRepository.save(detalle);
+        }
+    }
+
+    private SedeIcpnaEntity obtenerSedeParaUpdate(SolicitudDistribucionDTO dto, SolicitudDistribucionEntity solicitud) {
+        if (dto.getIdSede() == null) {
+            return solicitud.getSedeIcpna();
+        }
+        return sedeIcpnaRepository.findById(dto.getIdSede()).orElse(null);
+    }
+
+    private LocalDate calcularFechaLimiteRevision(SolicitudDistribucionPrioridad prioridad) {
+        return switch (prioridad) {
+            case NORMAL -> LocalDate.now().plusDays(4);
+            case ALTA -> LocalDate.now().plusDays(2);
+            case URGENTE -> LocalDate.now().plusDays(1);
+        };
     }
 }

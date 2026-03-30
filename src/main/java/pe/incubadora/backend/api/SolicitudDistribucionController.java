@@ -5,15 +5,24 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import pe.incubadora.backend.dtos.ErrorResponseDTO;
 import pe.incubadora.backend.dtos.SolicitudDistribucionDTO;
+import pe.incubadora.backend.entities.SolicitudDistribucionEntity;
+import pe.incubadora.backend.entities.UsuarioEntity;
 import pe.incubadora.backend.services.SolicitudDistribucionService;
+import pe.incubadora.backend.services.UsuarioService;
+import pe.incubadora.backend.utils.Rol;
 import pe.incubadora.backend.utils.solicitudDistribucion.CreateSolicitudDistribucionResult;
+import pe.incubadora.backend.utils.solicitudDistribucion.UpdateSolicitudDistribucionResult;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +32,8 @@ import java.util.Map;
 public class SolicitudDistribucionController {
     @Autowired
     private SolicitudDistribucionService solicitudDistribucionService;
+    @Autowired
+    private UsuarioService usuarioService;
 
     @PostMapping("/solicitudes")
     public ResponseEntity<Object> createSolicitudDistribucion(
@@ -62,5 +73,84 @@ public class SolicitudDistribucionController {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(
                 new ErrorResponseDTO("CODIGO_CONFLICT", "Ya existe una solicitud con este código"));
         }
+    }
+
+    @PutMapping("/solicitudes/{id}")
+    public ResponseEntity<Object> updateSolicitudDistribucion(
+        @RequestBody SolicitudDistribucionDTO dto, @PathVariable Long id, Authentication authentication) {
+        try {
+            SolicitudDistribucionEntity solicitud = solicitudDistribucionService.getSolicitudDistribucionById(id).orElse(null);
+            if (solicitud == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    new ErrorResponseDTO("SOLICITUD_NOT_FOUND", "No se encontró la solicitud"));
+            }
+
+            Rol rol = obtenerRol(authentication);
+            Long sedeIdUsuario = obtenerSedeIdUsuario(authentication, rol);
+
+            if (rol == Rol.SEDE && sedeIdUsuario == null) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                    new ErrorResponseDTO("FORBIDDEN", "El usuario no tiene una sede asociada"));
+            }
+
+            if (rol == Rol.SEDE && !sedeIdUsuario.equals(solicitud.getSedeIcpna().getId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                    new ErrorResponseDTO("FORBIDDEN", "No puede actualizar solicitudes de otra sede"));
+            }
+
+            UpdateSolicitudDistribucionResult resultado = solicitudDistribucionService.updateSolicitudDistribucion(dto, id);
+            return switch (resultado) {
+                case SOLICITUD_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    new ErrorResponseDTO("SOLICITUD_NOT_FOUND", "No se encontró la solicitud"));
+                case CODIGO_EMPTY -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "El código no puede ser vacío"));
+                case SEDE_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    new ErrorResponseDTO("SEDE_NOT_FOUND", "No se encontró la sede"));
+                case SEDE_NOT_ACTIVE -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "La sede proporcionada no se encuentra activa"));
+                case MATERIAL_REQUIRED -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "El material es obligatorio"));
+                case MATERIAL_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    new ErrorResponseDTO("MATERIAL_NOT_FOUND", "No se encontró el material"));
+                case SOLICITUD_DUPLICADA -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "Ya existe una solicitud activa para este periodo académico en esta sede"));
+                case PERIODO_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "Periodo académico inválido, use formato: yyyy-MM"));
+                case PRIORIDAD_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "Prioridad inválida, use: NORMAL | ALTA | URGENTE"));
+                case ITEMS_EMPTY -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "La solicitud debe tener al menos un item"));
+                case MATERIAL_DUPLICATE -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "El material no se puede duplicar"));
+                case CANTIDAD_SOLICITADA_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "Cantidad solicitada inválida, debe ser mayor a 0"));
+                case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se actualizo la solicitud con éxito");
+            };
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                new ErrorResponseDTO("CODIGO_CONFLICT", "Ya existe una solicitud con este código"));
+        }
+    }
+
+    private Rol obtenerRol(Authentication authentication) {
+        String authority = authentication.getAuthorities().stream()
+            .map(GrantedAuthority::getAuthority)
+            .findFirst()
+            .orElseThrow();
+
+        return Rol.valueOf(authority.replace("ROLE_", ""));
+    }
+
+    private Long obtenerSedeIdUsuario(Authentication authentication, Rol rol) {
+        if (rol != Rol.SEDE) {
+            return null;
+        }
+
+        UsuarioEntity usuario = usuarioService.findByUsername(authentication.getName());
+        if (usuario == null || usuario.getSede() == null) {
+            return null;
+        }
+
+        return usuario.getSede().getId();
     }
 }

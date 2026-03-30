@@ -7,4 +7,10 @@ import pe.incubadora.backend.entities.SolicitudDistribucionEntity;
 @Repository
 public interface SolicitudDistribucionRepository extends JpaRepository<SolicitudDistribucionEntity, Long> {
     boolean existsBySedeIcpnaIdAndPeriodoAcademicoAndEstadoNot(Long sedeId, String periodoAcademico, String estado);
+    boolean existsBySedeIcpnaIdAndPeriodoAcademicoAndEstadoNotAndIdNot(
+        Long sedeId,
+        String periodoAcademico,
+        String estado,
+        Long id
+    );
 }
