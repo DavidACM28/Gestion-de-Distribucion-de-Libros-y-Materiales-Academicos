@@ -20,6 +20,7 @@ import pe.incubadora.backend.repositories.SolicitudDistribucionDetalleRepository
 import pe.incubadora.backend.repositories.SolicitudDistribucionRepository;
 import pe.incubadora.backend.utils.sedeIcpna.SedeEstado;
 import pe.incubadora.backend.utils.solicitudDistribucion.CreateSolicitudDistribucionResult;
+import pe.incubadora.backend.utils.solicitudDistribucion.EnviarSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.SolicitudDistribucionEstado;
 import pe.incubadora.backend.utils.solicitudDistribucion.SolicitudDistribucionPrioridad;
 import pe.incubadora.backend.utils.solicitudDistribucion.UpdateSolicitudDistribucionResult;
@@ -132,6 +133,23 @@ public class SolicitudDistribucionService {
         applyChanges(dto, solicitud, sede);
         solicitudDistribucionRepository.save(solicitud);
         return UpdateSolicitudDistribucionResult.UPDATED;
+    }
+
+    @Transactional
+    public EnviarSolicitudDistribucionResult enviarSolicitudDistribucion(Long id) {
+        SolicitudDistribucionEntity solicitud = solicitudDistribucionRepository.findById(id).orElse(null);
+        if (solicitud == null) {
+            return EnviarSolicitudDistribucionResult.SOLICITUD_NOT_FOUND;
+        }
+
+        if (!SolicitudDistribucionEstado.BORRADOR.name().equalsIgnoreCase(solicitud.getEstado())
+            && !SolicitudDistribucionEstado.OBSERVADA.name().equalsIgnoreCase(solicitud.getEstado())) {
+            return EnviarSolicitudDistribucionResult.ESTADO_INVALIDO;
+        }
+
+        solicitud.setEstado(SolicitudDistribucionEstado.ENVIADA.name());
+        solicitudDistribucionRepository.save(solicitud);
+        return EnviarSolicitudDistribucionResult.UPDATED;
     }
 
     public Optional<SolicitudDistribucionEntity> getSolicitudDistribucionById(Long id) {

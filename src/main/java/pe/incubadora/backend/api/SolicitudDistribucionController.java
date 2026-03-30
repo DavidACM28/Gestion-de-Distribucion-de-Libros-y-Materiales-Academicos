@@ -20,6 +20,7 @@ import pe.incubadora.backend.services.SolicitudDistribucionService;
 import pe.incubadora.backend.services.UsuarioService;
 import pe.incubadora.backend.utils.Rol;
 import pe.incubadora.backend.utils.solicitudDistribucion.CreateSolicitudDistribucionResult;
+import pe.incubadora.backend.utils.solicitudDistribucion.EnviarSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.UpdateSolicitudDistribucionResult;
 
 import java.time.LocalDate;
@@ -168,6 +169,37 @@ public class SolicitudDistribucionController {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(
                 new ErrorResponseDTO("CODIGO_CONFLICT", "Ya existe una solicitud con este código"));
         }
+    }
+
+    @PatchMapping("/solicitudes/{id}/enviar")
+    public ResponseEntity<Object> enviarSolicitudDistribucion(@PathVariable Long id, Authentication authentication) {
+        SolicitudDistribucionEntity solicitud = solicitudDistribucionService.getSolicitudDistribucionById(id).orElse(null);
+        if (solicitud == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                new ErrorResponseDTO("SOLICITUD_NOT_FOUND", "No se encontró la solicitud"));
+        }
+
+        Rol rol = obtenerRol(authentication);
+        Long sedeIdUsuario = obtenerSedeIdUsuario(authentication, rol);
+
+        if (rol == Rol.SEDE && sedeIdUsuario == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                new ErrorResponseDTO("FORBIDDEN", "El usuario no tiene una sede asociada"));
+        }
+
+        if (rol == Rol.SEDE && !sedeIdUsuario.equals(solicitud.getSedeIcpna().getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                new ErrorResponseDTO("FORBIDDEN", "No puede enviar solicitudes de otra sede"));
+        }
+
+        EnviarSolicitudDistribucionResult resultado = solicitudDistribucionService.enviarSolicitudDistribucion(id);
+        return switch (resultado) {
+            case SOLICITUD_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                new ErrorResponseDTO("SOLICITUD_NOT_FOUND", "No se encontró la solicitud"));
+            case ESTADO_INVALIDO -> ResponseEntity.status(HttpStatus.CONFLICT).body(
+                new ErrorResponseDTO("ESTADO_INVALIDO", "La solicitud solo puede enviarse si está en BORRADOR u OBSERVADA"));
+            case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se enviÃ³ la solicitud con éxito");
+        };
     }
 
     @GetMapping("/solicitudes/{id}")

@@ -127,6 +127,9 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.PATCH,
                         "/api/v1/lotes/{id}/fuera-vigencia"
                     ).hasAnyRole("ADMIN", "ALMACEN")
+                    .requestMatchers(HttpMethod.PATCH,
+                        "/api/v1/solicitudes/{id}/enviar"
+                    ).hasAnyRole("ADMIN", "SEDE")
                     .requestMatchers(
                         "/api/v1/auth/**",
                         "/swagger-ui/**",
