@@ -1,6 +1,11 @@
 package pe.incubadora.backend.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.incubadora.backend.dtos.SolicitudDistribucionDTO;
@@ -131,6 +136,40 @@ public class SolicitudDistribucionService {
 
     public Optional<SolicitudDistribucionEntity> getSolicitudDistribucionById(Long id) {
         return solicitudDistribucionRepository.findById(id);
+    }
+
+    public Page<SolicitudDistribucionEntity> getSolicitudesDistribucionByFilters(
+        Long userSedeId, Long sedeId, String periodoAcademico, String estado, String prioridad, LocalDate fechaDesde,
+        LocalDate fechaHasta, int page, int size, String sort
+    ) {
+        Specification<SolicitudDistribucionEntity> spec = Specification.where((root, query, cb) -> cb.conjunction());
+
+        if (userSedeId != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("sedeIcpna").get("id"), userSedeId));
+        }
+        if (sedeId != null && userSedeId == null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("sedeIcpna").get("id"), sedeId));
+        }
+        if (periodoAcademico != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("periodoAcademico"), periodoAcademico));
+        }
+        if (estado != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("estado"), estado.toUpperCase()));
+        }
+        if (prioridad != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("prioridad"), prioridad.toUpperCase()));
+        }
+        if (fechaDesde != null) {
+            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("fechaSolicitud"), fechaDesde));
+        }
+        if (fechaHasta != null) {
+            spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("fechaSolicitud"), fechaHasta));
+        }
+
+        Sort.Direction direction = "descending".equalsIgnoreCase(sort) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, "id"));
+
+        return  solicitudDistribucionRepository.findAll(spec, pageable);
     }
 
     private CreateSolicitudDistribucionResult validateItems(SolicitudDistribucionDTO dto) {
