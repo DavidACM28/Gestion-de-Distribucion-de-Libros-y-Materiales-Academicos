@@ -21,6 +21,7 @@ import pe.incubadora.backend.repositories.SolicitudDistribucionRepository;
 import pe.incubadora.backend.utils.sedeIcpna.SedeEstado;
 import pe.incubadora.backend.utils.solicitudDistribucion.CreateSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.EnviarSolicitudDistribucionResult;
+import pe.incubadora.backend.utils.solicitudDistribucion.ObservarSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.SolicitudDistribucionEstado;
 import pe.incubadora.backend.utils.solicitudDistribucion.SolicitudDistribucionPrioridad;
 import pe.incubadora.backend.utils.solicitudDistribucion.UpdateSolicitudDistribucionResult;
@@ -150,6 +151,27 @@ public class SolicitudDistribucionService {
         solicitud.setEstado(SolicitudDistribucionEstado.ENVIADA.name());
         solicitudDistribucionRepository.save(solicitud);
         return EnviarSolicitudDistribucionResult.UPDATED;
+    }
+
+    @Transactional
+    public ObservarSolicitudDistribucionResult observarSolicitudDistribucion(Long id, String comentarioRevision) {
+        SolicitudDistribucionEntity solicitud = solicitudDistribucionRepository.findById(id).orElse(null);
+        if (solicitud == null) {
+            return ObservarSolicitudDistribucionResult.SOLICITUD_NOT_FOUND;
+        }
+
+        if (comentarioRevision == null || comentarioRevision.trim().isEmpty()) {
+            return ObservarSolicitudDistribucionResult.COMENTARIO_REVISION_EMPTY;
+        }
+
+        if (!SolicitudDistribucionEstado.ENVIADA.name().equalsIgnoreCase(solicitud.getEstado())) {
+            return ObservarSolicitudDistribucionResult.ESTADO_INVALIDO;
+        }
+
+        solicitud.setEstado(SolicitudDistribucionEstado.OBSERVADA.name());
+        solicitud.setComentarioRevision(comentarioRevision.trim());
+        solicitudDistribucionRepository.save(solicitud);
+        return ObservarSolicitudDistribucionResult.UPDATED;
     }
 
     public Optional<SolicitudDistribucionEntity> getSolicitudDistribucionById(Long id) {

@@ -13,6 +13,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import pe.incubadora.backend.dtos.ErrorResponseDTO;
+import pe.incubadora.backend.dtos.ObservarSolicitudDTO;
 import pe.incubadora.backend.dtos.SolicitudDistribucionDTO;
 import pe.incubadora.backend.entities.SolicitudDistribucionEntity;
 import pe.incubadora.backend.entities.UsuarioEntity;
@@ -21,6 +22,7 @@ import pe.incubadora.backend.services.UsuarioService;
 import pe.incubadora.backend.utils.Rol;
 import pe.incubadora.backend.utils.solicitudDistribucion.CreateSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.EnviarSolicitudDistribucionResult;
+import pe.incubadora.backend.utils.solicitudDistribucion.ObservarSolicitudDistribucionResult;
 import pe.incubadora.backend.utils.solicitudDistribucion.UpdateSolicitudDistribucionResult;
 
 import java.time.LocalDate;
@@ -199,6 +201,23 @@ public class SolicitudDistribucionController {
             case ESTADO_INVALIDO -> ResponseEntity.status(HttpStatus.CONFLICT).body(
                 new ErrorResponseDTO("ESTADO_INVALIDO", "La solicitud solo puede enviarse si está en BORRADOR u OBSERVADA"));
             case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se enviÃ³ la solicitud con éxito");
+        };
+    }
+
+    @PatchMapping("/solicitudes/{id}/observar")
+    public ResponseEntity<Object> observarSolicitudDistribucion(
+        @PathVariable Long id, @RequestBody ObservarSolicitudDTO dto) {
+        ObservarSolicitudDistribucionResult resultado =
+            solicitudDistribucionService.observarSolicitudDistribucion(id, dto.getComentarioRevision());
+
+        return switch (resultado) {
+            case SOLICITUD_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                new ErrorResponseDTO("SOLICITUD_NOT_FOUND", "No se encontró la solicitud"));
+            case COMENTARIO_REVISION_EMPTY -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                new ErrorResponseDTO("VALIDATION_ERROR", "El comentario de revisión no puede estar vacío"));
+            case ESTADO_INVALIDO -> ResponseEntity.status(HttpStatus.CONFLICT).body(
+                new ErrorResponseDTO("ESTADO_INVALIDO", "La solicitud solo puede pasar a OBSERVADA si está en ENVIADA"));
+            case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se observó la solicitud con éxito");
         };
     }
 
