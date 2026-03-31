@@ -1,6 +1,7 @@
 package pe.incubadora.backend.entities;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -18,6 +19,7 @@ public class SolicitudDistribucionDetalleEntity {
 
     @ManyToOne
     @JoinColumn(name = "solicitud_id")
+    @JsonBackReference
     private SolicitudDistribucionEntity solicitud;
 
     @ManyToOne

@@ -1,6 +1,7 @@
 package pe.incubadora.backend.entities;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
 
 @Entity
@@ -30,6 +32,10 @@ public class SolicitudDistribucionEntity {
     @ManyToOne
     @JoinColumn(name = "sede_id")
     private SedeIcpnaEntity sedeIcpna;
+
+    @JsonManagedReference
+    @OneToMany(mappedBy = "solicitud")
+    private List<SolicitudDistribucionDetalleEntity> detalles;
 
     private String periodoAcademico;
     private LocalDate fechaSolicitud;
