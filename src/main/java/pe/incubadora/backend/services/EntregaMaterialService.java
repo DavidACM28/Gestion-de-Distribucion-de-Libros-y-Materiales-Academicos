@@ -11,14 +11,20 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.incubadora.backend.dtos.EntregaMaterialDTO;
 import pe.incubadora.backend.entities.EntregaMaterialDetalleEntity;
 import pe.incubadora.backend.entities.EntregaMaterialEntity;
+import pe.incubadora.backend.entities.LoteIngresoEntity;
+import pe.incubadora.backend.entities.MovimientoInventarioEntity;
 import pe.incubadora.backend.entities.SolicitudDistribucionDetalleEntity;
 import pe.incubadora.backend.entities.SolicitudDistribucionEntity;
 import pe.incubadora.backend.repositories.EntregaMaterialDetalleRepository;
 import pe.incubadora.backend.repositories.EntregaMaterialRepository;
+import pe.incubadora.backend.repositories.LoteIngresoRepository;
+import pe.incubadora.backend.repositories.MovimientoInventarioRepository;
 import pe.incubadora.backend.repositories.SolicitudDistribucionDetalleRepository;
 import pe.incubadora.backend.repositories.SolicitudDistribucionRepository;
 import pe.incubadora.backend.utils.entregaMaterial.CreateEntregaMaterialResult;
+import pe.incubadora.backend.utils.entregaMaterial.DespacharEntregaMaterialResult;
 import pe.incubadora.backend.utils.entregaMaterial.EntregaEstado;
+import pe.incubadora.backend.utils.loteIngreso.LoteIngresoEstado;
 import pe.incubadora.backend.utils.solicitudDistribucion.SolicitudDistribucionEstado;
 
 import java.time.LocalDate;
@@ -36,6 +42,10 @@ public class EntregaMaterialService {
     private SolicitudDistribucionRepository solicitudDistribucionRepository;
     @Autowired
     private SolicitudDistribucionDetalleRepository solicitudDistribucionDetalleRepository;
+    @Autowired
+    private LoteIngresoRepository loteIngresoRepository;
+    @Autowired
+    private MovimientoInventarioRepository movimientoInventarioRepository;
 
     @Transactional
     public CreateEntregaMaterialResult createEntregaMaterial(EntregaMaterialDTO dto) {
@@ -91,6 +101,91 @@ public class EntregaMaterialService {
 
     public Optional<EntregaMaterialEntity> getEntregaMaterialById(Long id) {
         return entregaMaterialRepository.findById(id);
+    }
+
+    @Transactional
+    public DespacharEntregaMaterialResult despacharEntregaMaterial(Long id) {
+        EntregaMaterialEntity entrega = entregaMaterialRepository.findById(id).orElse(null);
+        if (entrega == null) {
+            return DespacharEntregaMaterialResult.ENTREGA_NOT_FOUND;
+        }
+        if (!EntregaEstado.PROGRAMADA.name().equalsIgnoreCase(entrega.getEstadoEntrega())) {
+            return DespacharEntregaMaterialResult.ESTADO_INVALIDO;
+        }
+
+        List<EntregaMaterialDetalleEntity> detalles = entregaMaterialDetalleRepository.findByEntregaId(entrega.getId());
+        if (detalles.isEmpty()) {
+            return DespacharEntregaMaterialResult.DETALLE_EMPTY;
+        }
+
+        for (EntregaMaterialDetalleEntity detalle : detalles) {
+            Long materialId = detalle.getMaterial().getId();
+            List<LoteIngresoEntity> lotes = loteIngresoRepository.findDisponiblesOrdenFefoByMaterialId(
+                materialId, LoteIngresoEstado.DISPONIBLE.name(), LocalDate.now()
+            );
+            int cantidadNecesaria = detalle.getCantidad();
+            int stockDisponible = lotes.stream().mapToInt(LoteIngresoEntity::getCantidadDisponible).sum();
+            if (stockDisponible < cantidadNecesaria) {
+                return DespacharEntregaMaterialResult.STOCK_INSUFFICIENT;
+            }
+        }
+
+        entregaMaterialDetalleRepository.deleteByEntregaId(entrega.getId());
+
+        for (EntregaMaterialDetalleEntity detalle : detalles) {
+            Long materialId = detalle.getMaterial().getId();
+            int cantidadPendiente = detalle.getCantidad();
+            List<LoteIngresoEntity> lotes = loteIngresoRepository.findDisponiblesOrdenFefoByMaterialId(
+                materialId, LoteIngresoEstado.DISPONIBLE.name(), LocalDate.now()
+            );
+            int indiceLote = 0;
+
+            while (cantidadPendiente > 0 && indiceLote < lotes.size()) {
+                LoteIngresoEntity lote = lotes.get(indiceLote);
+                if (lote.getCantidadDisponible() == 0) {
+                    indiceLote++;
+                    continue;
+                }
+
+                int cantidadTomada = Math.min(cantidadPendiente, lote.getCantidadDisponible());
+
+                EntregaMaterialDetalleEntity detalleDespachado = new EntregaMaterialDetalleEntity();
+                detalleDespachado.setEntrega(entrega);
+                detalleDespachado.setMaterial(detalle.getMaterial());
+                detalleDespachado.setLote(lote);
+                detalleDespachado.setCantidad(cantidadTomada);
+                entregaMaterialDetalleRepository.save(detalleDespachado);
+
+                MovimientoInventarioEntity movimiento = new MovimientoInventarioEntity();
+                movimiento.setMaterialAcademico(detalle.getMaterial());
+                movimiento.setLote(lote);
+                movimiento.setFecha(LocalDate.now());
+                movimiento.setTipoMovimiento("SALIDA");
+                movimiento.setCantidad(cantidadTomada);
+                movimiento.setReferenciaTipo("ENTREGA");
+                movimiento.setReferenciaId(entrega.getId());
+                movimiento.setComentario(entrega.getComentario());
+                movimientoInventarioRepository.save(movimiento);
+
+                lote.setCantidadDisponible(lote.getCantidadDisponible() - cantidadTomada);
+                if (lote.getCantidadDisponible() == 0) {
+                    lote.setEstado(LoteIngresoEstado.AGOTADO.name());
+                    indiceLote++;
+                }
+                loteIngresoRepository.save(lote);
+                cantidadPendiente -= cantidadTomada;
+            }
+        }
+
+        entrega.setFechaDespacho(LocalDate.now());
+        entrega.setEstadoEntrega(EntregaEstado.DESPACHADA.name());
+        entregaMaterialRepository.save(entrega);
+
+        SolicitudDistribucionEntity solicitud = entrega.getSolicitud();
+        solicitud.setEstado(SolicitudDistribucionEstado.DESPACHADA.name());
+        solicitudDistribucionRepository.save(solicitud);
+
+        return DespacharEntregaMaterialResult.UPDATED;
     }
 
     public Page<EntregaMaterialEntity> getEntregasByFilters(

@@ -126,20 +126,21 @@ public class SecurityConfig {
                         "/api/v1/solicitudes/{id}"
                     ).hasAnyRole("ADMIN", "SEDE")
                     .requestMatchers(HttpMethod.PATCH,
+                        "/api/v1/entregas/{id}/despachar"
+                    ).hasAnyRole("ADMIN", "ALMACEN")
+                    .requestMatchers(HttpMethod.PATCH,
                         "/api/v1/lotes/{id}/fuera-vigencia"
+                    ).hasAnyRole("ADMIN", "ALMACEN")
+                    .requestMatchers(HttpMethod.PATCH,
+                        "/api/v1/solicitudes/{id}/aprobar",
+                        "/api/v1/solicitudes/{id}/observar"
                     ).hasAnyRole("ADMIN", "ALMACEN")
                     .requestMatchers(HttpMethod.PATCH,
                         "/api/v1/solicitudes/{id}/enviar"
                     ).hasAnyRole("ADMIN", "SEDE")
                     .requestMatchers(HttpMethod.PATCH,
-                        "/api/v1/solicitudes/{id}/observar"
-                    ).hasAnyRole("ADMIN", "ALMACEN")
-                    .requestMatchers(HttpMethod.PATCH,
                         "/api/v1/solicitudes/{id}/cancelar"
                     ).hasAnyRole("ADMIN", "SEDE")
-                    .requestMatchers(HttpMethod.PATCH,
-                        "/api/v1/solicitudes/{id}/aprobar"
-                    ).hasAnyRole("ADMIN", "ALMACEN")
                     .requestMatchers(
                         "/api/v1/auth/**",
                         "/swagger-ui/**",

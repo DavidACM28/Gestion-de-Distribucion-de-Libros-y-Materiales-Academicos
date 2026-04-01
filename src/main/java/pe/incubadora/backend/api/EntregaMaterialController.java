@@ -6,18 +6,20 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import pe.incubadora.backend.dtos.EntregaMaterialDTO;
 import pe.incubadora.backend.dtos.ErrorResponseDTO;
@@ -27,6 +29,7 @@ import pe.incubadora.backend.services.EntregaMaterialService;
 import pe.incubadora.backend.services.UsuarioService;
 import pe.incubadora.backend.utils.Rol;
 import pe.incubadora.backend.utils.entregaMaterial.CreateEntregaMaterialResult;
+import pe.incubadora.backend.utils.entregaMaterial.DespacharEntregaMaterialResult;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -45,25 +48,25 @@ public class EntregaMaterialController {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<Object> handleTypeMismatchException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-            new ErrorResponseDTO("VALIDATION_ERROR", "Asegúrese de que los filtros se envíen con el formato correcto"));
+            new ErrorResponseDTO("VALIDATION_ERROR", "Asegurese de que los filtros se envien con el formato correcto"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleIllegalArgumentException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-            new ErrorResponseDTO("VALIDATION_ERROR", "Asegúrese de que los filtros se envíen con el formato correcto"));
+            new ErrorResponseDTO("VALIDATION_ERROR", "Asegurese de que los filtros se envien con el formato correcto"));
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<Object> handleMissingServletRequestParameterException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-            new ErrorResponseDTO("VALIDATION_ERROR", "Los parámetros: size, page, y sort, son obligatorios"));
+            new ErrorResponseDTO("VALIDATION_ERROR", "Los parametros: size, page, y sort, son obligatorios"));
     }
 
     @ExceptionHandler(DateTimeParseException.class)
     public ResponseEntity<Object> handleDateTimeParseException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-            new ErrorResponseDTO("VALIDATION_ERROR", "Fecha inválida. Use formato yyyy-MM-dd"));
+            new ErrorResponseDTO("VALIDATION_ERROR", "Fecha invalida. Use formato yyyy-MM-dd"));
     }
 
     @PostMapping("/entregas")
@@ -81,20 +84,20 @@ public class EntregaMaterialController {
             CreateEntregaMaterialResult resultado = entregaMaterialService.createEntregaMaterial(dto);
             return switch (resultado) {
                 case SOLICITUD_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                    new ErrorResponseDTO("SOLICITUD_NOT_FOUND", "No se encontró la solicitud"));
+                    new ErrorResponseDTO("SOLICITUD_NOT_FOUND", "No se encontro la solicitud"));
                 case SOLICITUD_ESTADO_NOT_VALID -> ResponseEntity.status(HttpStatus.CONFLICT).body(
                     new ErrorResponseDTO("ESTADO_INVALIDO", "La solicitud debe estar en estado APROBADA"));
                 case FECHA_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                    new ErrorResponseDTO("VALIDATION_ERROR", "Fecha inválida, use formato yyyy-MM-dd"));
+                    new ErrorResponseDTO("VALIDATION_ERROR", "Fecha invalida, use formato yyyy-MM-dd"));
                 case FECHA_PROGRAMADA_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                     new ErrorResponseDTO("VALIDATION_ERROR", "La fecha programada no puede ser anterior a la fecha actual"));
                 case DETALLE_EMPTY -> ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(
                     new ErrorResponseDTO("BUSINESS_RULE_VIOLATION", "La solicitud no tiene items aprobados para crear la entrega"));
-                case CREATED -> ResponseEntity.status(HttpStatus.CREATED).body("Se creo la entrega con éxito");
+                case CREATED -> ResponseEntity.status(HttpStatus.CREATED).body("Se creo la entrega con exito");
             };
         } catch (DataIntegrityViolationException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(
-                new ErrorResponseDTO("CODIGO_CONFLICT", "Ya existe una entrega con este código"));
+                new ErrorResponseDTO("CODIGO_CONFLICT", "Ya existe una entrega con este codigo"));
         }
     }
 
@@ -103,7 +106,7 @@ public class EntregaMaterialController {
         EntregaMaterialEntity entrega = entregaMaterialService.getEntregaMaterialById(id).orElse(null);
         if (entrega == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                new ErrorResponseDTO("ENTREGA_NOT_FOUND", "No se encontró la entrega"));
+                new ErrorResponseDTO("ENTREGA_NOT_FOUND", "No se encontro la entrega"));
         }
 
         Rol rol = obtenerRol(authentication);
@@ -116,7 +119,7 @@ public class EntregaMaterialController {
 
         if (rol == Rol.SEDE && !sedeIdUsuario.equals(entrega.getSolicitud().getSedeIcpna().getId())) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                new ErrorResponseDTO("ENTREGA_NOT_FOUND", "No se encontró la entrega"));
+                new ErrorResponseDTO("ENTREGA_NOT_FOUND", "No se encontro la entrega"));
         }
 
         return ResponseEntity.status(HttpStatus.OK).body(entrega);
@@ -141,20 +144,43 @@ public class EntregaMaterialController {
         LocalDate hasta = fechaHasta != null ? LocalDate.parse(fechaHasta, DateTimeFormatter.ISO_DATE) : null;
         if (desde != null && hasta != null && !desde.isBefore(hasta) && !desde.isEqual(hasta)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                new ErrorResponseDTO("VALIDATION_ERROR", "La fecha limite de búsqueda no puede ser anterior a la fecha de inicio de búsqueda"));
+                new ErrorResponseDTO("VALIDATION_ERROR", "La fecha limite de busqueda no puede ser anterior a la fecha de inicio de busqueda"));
         }
         if (page < 0) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
-                new ErrorResponseDTO("VALIDATION_ERROR", "El número de página no puede ser menor a 0"));
+                new ErrorResponseDTO("VALIDATION_ERROR", "El numero de pagina no puede ser menor a 0"));
         }
         if (size <= 0) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
-                new ErrorResponseDTO("VALIDATION_ERROR", "El tamaño de página debe ser mayor a 0"));
+                new ErrorResponseDTO("VALIDATION_ERROR", "El tamano de pagina debe ser mayor a 0"));
         }
 
         Page<EntregaMaterialEntity> entregas = entregaMaterialService.getEntregasByFilters(
             sedeIdUsuario, solicitudId, sedeId, estadoEntrega, desde, hasta, page, size, sort);
         return ResponseEntity.status(HttpStatus.OK).body(entregas);
+    }
+
+    @PatchMapping("/entregas/{id}/despachar")
+    public ResponseEntity<Object> despacharEntregaMaterial(@PathVariable Long id) {
+        try {
+            DespacharEntregaMaterialResult resultado = entregaMaterialService.despacharEntregaMaterial(id);
+            return switch (resultado) {
+                case ENTREGA_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    new ErrorResponseDTO("ENTREGA_NOT_FOUND", "No se encontro la entrega"));
+                case ESTADO_INVALIDO -> ResponseEntity.status(HttpStatus.CONFLICT).body(
+                    new ErrorResponseDTO("ESTADO_INVALIDO", "La entrega solo puede despacharse si esta en PROGRAMADA"));
+                case DETALLE_EMPTY -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ErrorResponseDTO("VALIDATION_ERROR", "La entrega debe contener al menos un item para despacho"));
+                case LOTE_NOT_VALID -> ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(
+                    new ErrorResponseDTO("LOTE_NOT_VALID", "No se puede usar un lote invalido para el despacho"));
+                case STOCK_INSUFFICIENT -> ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(
+                    new ErrorResponseDTO("STOCK_INSUFFICIENT", "No hay stock suficiente para despachar toda la entrega"));
+                case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se despacho la entrega con exito");
+            };
+        } catch (ObjectOptimisticLockingFailureException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                new ErrorResponseDTO("STOCK_CONFLICT", "El stock fue actualizado por otra operacion. Intente nuevamente"));
+        }
     }
 
     private Rol obtenerRol(Authentication authentication) {
