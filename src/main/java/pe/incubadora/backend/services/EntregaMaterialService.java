@@ -19,6 +19,7 @@ import pe.incubadora.backend.utils.solicitudDistribucion.SolicitudDistribucionEs
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class EntregaMaterialService {
@@ -81,5 +82,9 @@ public class EntregaMaterialService {
         }
 
         return CreateEntregaMaterialResult.CREATED;
+    }
+
+    public Optional<EntregaMaterialEntity> getEntregaMaterialById(Long id) {
+        return entregaMaterialRepository.findById(id);
     }
 }
