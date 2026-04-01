@@ -30,6 +30,7 @@ import pe.incubadora.backend.services.UsuarioService;
 import pe.incubadora.backend.utils.Rol;
 import pe.incubadora.backend.utils.entregaMaterial.CreateEntregaMaterialResult;
 import pe.incubadora.backend.utils.entregaMaterial.DespacharEntregaMaterialResult;
+import pe.incubadora.backend.utils.entregaMaterial.EnRutaEntregaMaterialResult;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -181,6 +182,18 @@ public class EntregaMaterialController {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(
                 new ErrorResponseDTO("STOCK_CONFLICT", "El stock fue actualizado por otra operacion. Intente nuevamente"));
         }
+    }
+
+    @PatchMapping("/entregas/{id}/en-ruta")
+    public ResponseEntity<Object> enRutaEntregaMaterial(@PathVariable Long id) {
+        EnRutaEntregaMaterialResult resultado = entregaMaterialService.enRutaEntregaMaterial(id);
+        return switch (resultado) {
+            case ENTREGA_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                new ErrorResponseDTO("ENTREGA_NOT_FOUND", "No se encontró la entrega"));
+            case ESTADO_INVALIDO -> ResponseEntity.status(HttpStatus.CONFLICT).body(
+                new ErrorResponseDTO("ESTADO_INVALIDO", "La entrega solo puede pasar a EN_RUTA si está en DESPACHADA"));
+            case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se actualizó la entrega a EN_RUTA con éxito");
+        };
     }
 
     private Rol obtenerRol(Authentication authentication) {

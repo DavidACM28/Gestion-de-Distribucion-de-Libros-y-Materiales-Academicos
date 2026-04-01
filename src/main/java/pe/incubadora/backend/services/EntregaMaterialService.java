@@ -23,6 +23,7 @@ import pe.incubadora.backend.repositories.SolicitudDistribucionDetalleRepository
 import pe.incubadora.backend.repositories.SolicitudDistribucionRepository;
 import pe.incubadora.backend.utils.entregaMaterial.CreateEntregaMaterialResult;
 import pe.incubadora.backend.utils.entregaMaterial.DespacharEntregaMaterialResult;
+import pe.incubadora.backend.utils.entregaMaterial.EnRutaEntregaMaterialResult;
 import pe.incubadora.backend.utils.entregaMaterial.EntregaEstado;
 import pe.incubadora.backend.utils.loteIngreso.LoteIngresoEstado;
 import pe.incubadora.backend.utils.solicitudDistribucion.SolicitudDistribucionEstado;
@@ -186,6 +187,21 @@ public class EntregaMaterialService {
         solicitudDistribucionRepository.save(solicitud);
 
         return DespacharEntregaMaterialResult.UPDATED;
+    }
+
+    @Transactional
+    public EnRutaEntregaMaterialResult enRutaEntregaMaterial(Long id) {
+        EntregaMaterialEntity entrega = entregaMaterialRepository.findById(id).orElse(null);
+        if (entrega == null) {
+            return EnRutaEntregaMaterialResult.ENTREGA_NOT_FOUND;
+        }
+        if (!EntregaEstado.DESPACHADA.name().equalsIgnoreCase(entrega.getEstadoEntrega())) {
+            return EnRutaEntregaMaterialResult.ESTADO_INVALIDO;
+        }
+
+        entrega.setEstadoEntrega(EntregaEstado.EN_RUTA.name());
+        entregaMaterialRepository.save(entrega);
+        return EnRutaEntregaMaterialResult.UPDATED;
     }
 
     public Page<EntregaMaterialEntity> getEntregasByFilters(

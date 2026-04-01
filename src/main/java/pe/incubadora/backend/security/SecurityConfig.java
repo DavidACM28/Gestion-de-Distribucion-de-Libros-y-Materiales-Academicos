@@ -126,7 +126,8 @@ public class SecurityConfig {
                         "/api/v1/solicitudes/{id}"
                     ).hasAnyRole("ADMIN", "SEDE")
                     .requestMatchers(HttpMethod.PATCH,
-                        "/api/v1/entregas/{id}/despachar"
+                        "/api/v1/entregas/{id}/despachar",
+                        "/api/v1/entregas/{id}/en-ruta"
                     ).hasAnyRole("ADMIN", "ALMACEN")
                     .requestMatchers(HttpMethod.PATCH,
                         "/api/v1/lotes/{id}/fuera-vigencia"
