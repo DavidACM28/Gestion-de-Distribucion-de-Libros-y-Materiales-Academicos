@@ -9,6 +9,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.incubadora.backend.dtos.EntregaMaterialDTO;
+import pe.incubadora.backend.dtos.RegistrarRecepcionEntregaDTO;
 import pe.incubadora.backend.entities.EntregaMaterialDetalleEntity;
 import pe.incubadora.backend.entities.EntregaMaterialEntity;
 import pe.incubadora.backend.entities.LoteIngresoEntity;
@@ -25,6 +26,7 @@ import pe.incubadora.backend.utils.entregaMaterial.CreateEntregaMaterialResult;
 import pe.incubadora.backend.utils.entregaMaterial.DespacharEntregaMaterialResult;
 import pe.incubadora.backend.utils.entregaMaterial.EnRutaEntregaMaterialResult;
 import pe.incubadora.backend.utils.entregaMaterial.EntregaEstado;
+import pe.incubadora.backend.utils.entregaMaterial.RegistrarRecepcionEntregaMaterialResult;
 import pe.incubadora.backend.utils.loteIngreso.LoteIngresoEstado;
 import pe.incubadora.backend.utils.solicitudDistribucion.SolicitudDistribucionEstado;
 
@@ -202,6 +204,31 @@ public class EntregaMaterialService {
         entrega.setEstadoEntrega(EntregaEstado.EN_RUTA.name());
         entregaMaterialRepository.save(entrega);
         return EnRutaEntregaMaterialResult.UPDATED;
+    }
+
+    @Transactional
+    public RegistrarRecepcionEntregaMaterialResult registrarRecepcionEntregaMaterial(
+        Long id,
+        RegistrarRecepcionEntregaDTO dto
+    ) {
+        EntregaMaterialEntity entrega = entregaMaterialRepository.findById(id).orElse(null);
+        if (entrega == null) {
+            return RegistrarRecepcionEntregaMaterialResult.ENTREGA_NOT_FOUND;
+        }
+        if (!EntregaEstado.EN_RUTA.name().equalsIgnoreCase(entrega.getEstadoEntrega())) {
+            return RegistrarRecepcionEntregaMaterialResult.ESTADO_INVALIDO;
+        }
+
+        entrega.setFechaEntrega(LocalDate.now());
+        entrega.setResponsableRecepcion(dto.getResponsableRecepcion().trim());
+        entrega.setEstadoEntrega(dto.getConIncidencia() ? EntregaEstado.CON_INCIDENCIA.name() : EntregaEstado.ENTREGADA.name());
+        entregaMaterialRepository.save(entrega);
+
+        SolicitudDistribucionEntity solicitud = entrega.getSolicitud();
+        solicitud.setEstado(dto.getConIncidencia() ? SolicitudDistribucionEstado.PARCIAL.name() : SolicitudDistribucionEstado.ENTREGADA.name());
+        solicitudDistribucionRepository.save(solicitud);
+
+        return RegistrarRecepcionEntregaMaterialResult.UPDATED;
     }
 
     public Page<EntregaMaterialEntity> getEntregasByFilters(

@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import pe.incubadora.backend.dtos.EntregaMaterialDTO;
 import pe.incubadora.backend.dtos.ErrorResponseDTO;
+import pe.incubadora.backend.dtos.RegistrarRecepcionEntregaDTO;
 import pe.incubadora.backend.entities.EntregaMaterialEntity;
 import pe.incubadora.backend.entities.UsuarioEntity;
 import pe.incubadora.backend.services.EntregaMaterialService;
@@ -31,6 +32,7 @@ import pe.incubadora.backend.utils.Rol;
 import pe.incubadora.backend.utils.entregaMaterial.CreateEntregaMaterialResult;
 import pe.incubadora.backend.utils.entregaMaterial.DespacharEntregaMaterialResult;
 import pe.incubadora.backend.utils.entregaMaterial.EnRutaEntregaMaterialResult;
+import pe.incubadora.backend.utils.entregaMaterial.RegistrarRecepcionEntregaMaterialResult;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -193,6 +195,32 @@ public class EntregaMaterialController {
             case ESTADO_INVALIDO -> ResponseEntity.status(HttpStatus.CONFLICT).body(
                 new ErrorResponseDTO("ESTADO_INVALIDO", "La entrega solo puede pasar a EN_RUTA si está en DESPACHADA"));
             case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se actualizó la entrega a EN_RUTA con éxito");
+        };
+    }
+
+    @PatchMapping("/entregas/{id}/registrar-recepcion")
+    public ResponseEntity<Object> registrarRecepcionEntregaMaterial(
+        @PathVariable Long id,
+        @Valid @RequestBody RegistrarRecepcionEntregaDTO dto,
+        BindingResult result
+    ) {
+        if (result.hasErrors()) {
+            Map<String, String> errores = new HashMap<>();
+            result.getFieldErrors().forEach(error -> errores.put(error.getField(), error.getDefaultMessage()));
+            Map<String, Object> response = new HashMap<>();
+            response.put("code", "VALIDATION_ERROR");
+            response.put("errors", errores);
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        RegistrarRecepcionEntregaMaterialResult resultado = entregaMaterialService.registrarRecepcionEntregaMaterial(
+            id, dto);
+        return switch (resultado) {
+            case ENTREGA_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                new ErrorResponseDTO("ENTREGA_NOT_FOUND", "No se encontró la entrega"));
+            case ESTADO_INVALIDO -> ResponseEntity.status(HttpStatus.CONFLICT).body(
+                new ErrorResponseDTO("ESTADO_INVALIDO", "La entrega solo puede registrar recepción si esta en EN_RUTA"));
+            case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se registró la recepción de la entrega con éxito");
         };
     }
 
