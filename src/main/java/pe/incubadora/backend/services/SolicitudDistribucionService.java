@@ -40,6 +40,9 @@ import java.util.Optional;
 import java.util.Set;
 
 @Service
+/**
+ * Contains business logic for distribution requests, including lifecycle transitions and approvals.
+ */
 public class SolicitudDistribucionService {
     @Autowired
     private SolicitudDistribucionRepository solicitudDistribucionRepository;
@@ -52,6 +55,12 @@ public class SolicitudDistribucionService {
     @Autowired
     private LoteIngresoRepository loteIngresoRepository;
 
+    /**
+     * Creates a distribution request in {@code BORRADOR} with its detail lines.
+     *
+     * @param dto request payload
+     * @return create operation result
+     */
     @Transactional
     public CreateSolicitudDistribucionResult createSolicitudDistribucion(SolicitudDistribucionDTO dto) {
         LocalDate fechaLimiteRevision;
@@ -122,6 +131,13 @@ public class SolicitudDistribucionService {
         return CreateSolicitudDistribucionResult.CREATED;
     }
 
+    /**
+     * Updates a request and optionally replaces its detail lines.
+     *
+     * @param dto update payload
+     * @param id request identifier
+     * @return update operation result
+     */
     @Transactional
     public UpdateSolicitudDistribucionResult updateSolicitudDistribucion(SolicitudDistribucionDTO dto, Long id) {
         SolicitudDistribucionEntity solicitud = solicitudDistribucionRepository.findById(id).orElse(null);
@@ -144,6 +160,12 @@ public class SolicitudDistribucionService {
         return UpdateSolicitudDistribucionResult.UPDATED;
     }
 
+    /**
+     * Moves a request to {@code ENVIADA} when current status allows it.
+     *
+     * @param id request identifier
+     * @return operation result
+     */
     @Transactional
     public EnviarSolicitudDistribucionResult enviarSolicitudDistribucion(Long id) {
         SolicitudDistribucionEntity solicitud = solicitudDistribucionRepository.findById(id).orElse(null);
@@ -161,6 +183,13 @@ public class SolicitudDistribucionService {
         return EnviarSolicitudDistribucionResult.UPDATED;
     }
 
+    /**
+     * Marks a request as observed and stores the review comment.
+     *
+     * @param id request identifier
+     * @param comentarioRevision review comment
+     * @return operation result
+     */
     @Transactional
     public ObservarSolicitudDistribucionResult observarSolicitudDistribucion(Long id, String comentarioRevision) {
         SolicitudDistribucionEntity solicitud = solicitudDistribucionRepository.findById(id).orElse(null);
@@ -182,6 +211,12 @@ public class SolicitudDistribucionService {
         return ObservarSolicitudDistribucionResult.UPDATED;
     }
 
+    /**
+     * Cancels a request unless it already reached non-cancelable states.
+     *
+     * @param id request identifier
+     * @return operation result
+     */
     @Transactional
     public CancelarSolicitudDistribucionResult cancelarSolicitudDistribucion(Long id) {
         SolicitudDistribucionEntity solicitud = solicitudDistribucionRepository.findById(id).orElse(null);
@@ -200,6 +235,13 @@ public class SolicitudDistribucionService {
         return CancelarSolicitudDistribucionResult.UPDATED;
     }
 
+    /**
+     * Approves request details and transitions the request to {@code APROBADA}.
+     *
+     * @param id request identifier
+     * @param dto approval payload
+     * @return operation result
+     */
     @Transactional
     public AprobarSolicitudDistribucionResult aprobarSolicitudDistribucion(Long id, AprobarSolicitudDTO dto) {
         SolicitudDistribucionEntity solicitud = solicitudDistribucionRepository.findById(id).orElse(null);
@@ -230,10 +272,31 @@ public class SolicitudDistribucionService {
         return AprobarSolicitudDistribucionResult.UPDATED;
     }
 
+    /**
+     * Returns one request by id.
+     *
+     * @param id request identifier
+     * @return optional request
+     */
     public Optional<SolicitudDistribucionEntity> getSolicitudDistribucionById(Long id) {
         return solicitudDistribucionRepository.findById(id);
     }
 
+    /**
+     * Returns paginated requests using optional filters and requester scope.
+     *
+     * @param userSedeId requester's branch id (when role is {@code SEDE})
+     * @param sedeId optional branch filter for non-branch users
+     * @param periodoAcademico optional academic period
+     * @param estado optional request status
+     * @param prioridad optional priority
+     * @param fechaDesde optional lower bound for request date
+     * @param fechaHasta optional upper bound for request date
+     * @param page page index
+     * @param size page size
+     * @param sort sort direction token
+     * @return paginated requests
+     */
     public Page<SolicitudDistribucionEntity> getSolicitudesDistribucionByFilters(
         Long userSedeId, Long sedeId, String periodoAcademico, String estado, String prioridad, LocalDate fechaDesde,
         LocalDate fechaHasta, int page, int size, String sort
@@ -268,6 +331,13 @@ public class SolicitudDistribucionService {
         return  solicitudDistribucionRepository.findAll(spec, pageable);
     }
 
+    /**
+     * Validates create request detail lines:
+     * non-zero quantities, no duplicate materials and existing materials.
+     *
+     * @param dto create payload
+     * @return first validation error or {@code null} when valid
+     */
     private CreateSolicitudDistribucionResult validateItems(SolicitudDistribucionDTO dto) {
         Set<Long> materialIds = new HashSet<>();
 
@@ -285,6 +355,13 @@ public class SolicitudDistribucionService {
         return null;
     }
 
+    /**
+     * Validates an approval payload against request details and available stock.
+     *
+     * @param dto approval payload
+     * @param solicitudId request identifier
+     * @return first validation error or {@code null} when valid
+     */
     private AprobarSolicitudDistribucionResult validateAprobacion(AprobarSolicitudDTO dto, Long solicitudId) {
         boolean hasApprovedItem = false;
 
@@ -324,6 +401,14 @@ public class SolicitudDistribucionService {
         return null;
     }
 
+    /**
+     * Validates update payload in context of current request and target branch.
+     *
+     * @param dto update payload
+     * @param solicitud current request entity
+     * @param sede target branch
+     * @return first validation error or {@code null} when valid
+     */
     private UpdateSolicitudDistribucionResult validateSolicitudDistribucionDTO(
         SolicitudDistribucionDTO dto, SolicitudDistribucionEntity solicitud,SedeIcpnaEntity sede
     ) {
@@ -377,6 +462,12 @@ public class SolicitudDistribucionService {
         return null;
     }
 
+    /**
+     * Validates detail lines provided in update payload.
+     *
+     * @param dto update payload
+     * @return first validation error or {@code null} when valid
+     */
     private UpdateSolicitudDistribucionResult validateUpdateItems(SolicitudDistribucionDTO dto) {
         Set<Long> materialIds = new HashSet<>();
 
@@ -398,6 +489,13 @@ public class SolicitudDistribucionService {
         return null;
     }
 
+    /**
+     * Applies non-null update fields and optionally replaces request details.
+     *
+     * @param dto update payload
+     * @param solicitud target request
+     * @param sede resolved target branch
+     */
     private void applyChanges(SolicitudDistribucionDTO dto, SolicitudDistribucionEntity solicitud, SedeIcpnaEntity sede) {
         if (dto.getCodigo() != null) {
             solicitud.setCodigo(dto.getCodigo());
@@ -421,6 +519,12 @@ public class SolicitudDistribucionService {
         }
     }
 
+    /**
+     * Persists approved quantities for each detail id in the approval payload.
+     *
+     * @param dto approval payload
+     * @param solicitud target request
+     */
     private void applyAprobacion(AprobarSolicitudDTO dto, SolicitudDistribucionEntity solicitud) {
         for (AprobarSolicitudDetalleDTO item : dto.getItems()) {
             SolicitudDistribucionDetalleEntity detalle =
@@ -430,6 +534,12 @@ public class SolicitudDistribucionService {
         }
     }
 
+    /**
+     * Replaces all existing request details with payload items.
+     *
+     * @param dto update payload
+     * @param solicitud target request
+     */
     private void reemplazarItems(SolicitudDistribucionDTO dto, SolicitudDistribucionEntity solicitud) {
         solicitudDistribucionDetalleRepository.deleteBySolicitudId(solicitud.getId());
 
@@ -446,6 +556,14 @@ public class SolicitudDistribucionService {
         }
     }
 
+    /**
+     * Resolves branch to use on update:
+     * keeps current branch when payload does not include a new branch id.
+     *
+     * @param dto update payload
+     * @param solicitud current request
+     * @return resolved branch or {@code null} when requested branch does not exist
+     */
     private SedeIcpnaEntity obtenerSedeParaUpdate(SolicitudDistribucionDTO dto, SolicitudDistribucionEntity solicitud) {
         if (dto.getIdSede() == null) {
             return solicitud.getSedeIcpna();
@@ -453,6 +571,12 @@ public class SolicitudDistribucionService {
         return sedeIcpnaRepository.findById(dto.getIdSede()).orElse(null);
     }
 
+    /**
+     * Calculates review deadline according to request priority.
+     *
+     * @param prioridad request priority
+     * @return deadline date
+     */
     private LocalDate calcularFechaLimiteRevision(SolicitudDistribucionPrioridad prioridad) {
         return switch (prioridad) {
             case NORMAL -> LocalDate.now().plusDays(4);

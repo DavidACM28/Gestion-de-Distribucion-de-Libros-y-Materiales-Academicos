@@ -42,36 +42,66 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1")
+/**
+ * Exposes delivery endpoints, including dispatch and reception lifecycle transitions.
+ */
 public class EntregaMaterialController {
     @Autowired
     private EntregaMaterialService entregaMaterialService;
     @Autowired
     private UsuarioService usuarioService;
 
+    /**
+     * Handles invalid filter value types sent in query parameters.
+     *
+     * @return validation error response
+     */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<Object> handleTypeMismatchException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-            new ErrorResponseDTO("VALIDATION_ERROR", "Asegurese de que los filtros se envien con el formato correcto"));
+            new ErrorResponseDTO("VALIDATION_ERROR", "Asegúrese de que los filtros se envíen con el formato correcto"));
     }
 
+    /**
+     * Handles invalid enum or argument values used by filters.
+     *
+     * @return validation error response
+     */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleIllegalArgumentException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-            new ErrorResponseDTO("VALIDATION_ERROR", "Asegurese de que los filtros se envien con el formato correcto"));
+            new ErrorResponseDTO("VALIDATION_ERROR", "Asegúrese de que los filtros se envíen con el formato correcto"));
     }
 
+    /**
+     * Handles missing mandatory pagination and sorting parameters.
+     *
+     * @return validation error response
+     */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<Object> handleMissingServletRequestParameterException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-            new ErrorResponseDTO("VALIDATION_ERROR", "Los parametros: size, page, y sort, son obligatorios"));
+            new ErrorResponseDTO("VALIDATION_ERROR", "Los parámetros: size, page, y sort, son obligatorios"));
     }
 
+    /**
+     * Handles invalid date formats for date-based filters.
+     *
+     * @return validation error response
+     */
     @ExceptionHandler(DateTimeParseException.class)
     public ResponseEntity<Object> handleDateTimeParseException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-            new ErrorResponseDTO("VALIDATION_ERROR", "Fecha invalida. Use formato yyyy-MM-dd"));
+            new ErrorResponseDTO("VALIDATION_ERROR", "Fecha inválida. Use formato yyyy-MM-dd"));
     }
 
+    /**
+     * Creates a delivery from an approved distribution request.
+     *
+     * @param dto delivery payload
+     * @param result Bean Validation result
+     * @return created response or validation/business errors
+     */
     @PostMapping("/entregas")
     public ResponseEntity<Object> createEntregaMaterial(@Valid @RequestBody EntregaMaterialDTO dto, BindingResult result) {
         if (result.hasErrors()) {
@@ -87,7 +117,7 @@ public class EntregaMaterialController {
             CreateEntregaMaterialResult resultado = entregaMaterialService.createEntregaMaterial(dto);
             return switch (resultado) {
                 case SOLICITUD_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                    new ErrorResponseDTO("SOLICITUD_NOT_FOUND", "No se encontro la solicitud"));
+                    new ErrorResponseDTO("SOLICITUD_NOT_FOUND", "No se encontró la solicitud"));
                 case SOLICITUD_ESTADO_NOT_VALID -> ResponseEntity.status(HttpStatus.CONFLICT).body(
                     new ErrorResponseDTO("ESTADO_INVALIDO", "La solicitud debe estar en estado APROBADA"));
                 case FECHA_NOT_VALID -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
@@ -96,20 +126,27 @@ public class EntregaMaterialController {
                     new ErrorResponseDTO("VALIDATION_ERROR", "La fecha programada no puede ser anterior a la fecha actual"));
                 case DETALLE_EMPTY -> ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(
                     new ErrorResponseDTO("BUSINESS_RULE_VIOLATION", "La solicitud no tiene items aprobados para crear la entrega"));
-                case CREATED -> ResponseEntity.status(HttpStatus.CREATED).body("Se creo la entrega con exito");
+                case CREATED -> ResponseEntity.status(HttpStatus.CREATED).body("Se creó la entrega con éxito");
             };
         } catch (DataIntegrityViolationException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(
-                new ErrorResponseDTO("CODIGO_CONFLICT", "Ya existe una entrega con este codigo"));
+                new ErrorResponseDTO("CODIGO_CONFLICT", "Ya existe una entrega con este código"));
         }
     }
 
+    /**
+     * Returns one delivery by id with visibility rules for branch users.
+     *
+     * @param id delivery identifier
+     * @param authentication authenticated principal
+     * @return delivery response or not found/forbidden errors
+     */
     @GetMapping("/entregas/{id}")
     public ResponseEntity<Object> getEntregaMaterialById(@PathVariable Long id, Authentication authentication) {
         EntregaMaterialEntity entrega = entregaMaterialService.getEntregaMaterialById(id).orElse(null);
         if (entrega == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                new ErrorResponseDTO("ENTREGA_NOT_FOUND", "No se encontro la entrega"));
+                new ErrorResponseDTO("ENTREGA_NOT_FOUND", "No se encontró la entrega"));
         }
 
         Rol rol = obtenerRol(authentication);
@@ -122,12 +159,26 @@ public class EntregaMaterialController {
 
         if (rol == Rol.SEDE && !sedeIdUsuario.equals(entrega.getSolicitud().getSedeIcpna().getId())) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                new ErrorResponseDTO("ENTREGA_NOT_FOUND", "No se encontro la entrega"));
+                new ErrorResponseDTO("ENTREGA_NOT_FOUND", "No se encontró la entrega"));
         }
 
         return ResponseEntity.status(HttpStatus.OK).body(entrega);
     }
 
+    /**
+     * Returns paginated deliveries using filters and role-based scope restrictions.
+     *
+     * @param authentication authenticated principal
+     * @param solicitudId optional request filter
+     * @param sedeId optional branch filter for non-branch users
+     * @param estadoEntrega optional delivery status filter
+     * @param fechaDesde optional start date filter in {@code yyyy-MM-dd}
+     * @param fechaHasta optional end date filter in {@code yyyy-MM-dd}
+     * @param page page index
+     * @param size page size
+     * @param sort sort direction token
+     * @return paginated deliveries
+     */
     @GetMapping("/entregas")
     public ResponseEntity<Object> getEntregas(
         Authentication authentication, @RequestParam(required = false) Long solicitudId,
@@ -147,15 +198,15 @@ public class EntregaMaterialController {
         LocalDate hasta = fechaHasta != null ? LocalDate.parse(fechaHasta, DateTimeFormatter.ISO_DATE) : null;
         if (desde != null && hasta != null && !desde.isBefore(hasta) && !desde.isEqual(hasta)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                new ErrorResponseDTO("VALIDATION_ERROR", "La fecha limite de busqueda no puede ser anterior a la fecha de inicio de busqueda"));
+                new ErrorResponseDTO("VALIDATION_ERROR", "La fecha limite de búsqueda no puede ser anterior a la fecha de inicio de búsqueda"));
         }
         if (page < 0) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
-                new ErrorResponseDTO("VALIDATION_ERROR", "El numero de pagina no puede ser menor a 0"));
+                new ErrorResponseDTO("VALIDATION_ERROR", "El número de página no puede ser menor a 0"));
         }
         if (size <= 0) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
-                new ErrorResponseDTO("VALIDATION_ERROR", "El tamano de pagina debe ser mayor a 0"));
+                new ErrorResponseDTO("VALIDATION_ERROR", "El tamaño de página debe ser mayor a 0"));
         }
 
         Page<EntregaMaterialEntity> entregas = entregaMaterialService.getEntregasByFilters(
@@ -163,13 +214,19 @@ public class EntregaMaterialController {
         return ResponseEntity.status(HttpStatus.OK).body(entregas);
     }
 
+    /**
+     * Dispatches a delivery and applies stock deduction using FEFO lot ordering.
+     *
+     * @param id delivery identifier
+     * @return updated response or business/stock conflict errors
+     */
     @PatchMapping("/entregas/{id}/despachar")
     public ResponseEntity<Object> despacharEntregaMaterial(@PathVariable Long id) {
         try {
             DespacharEntregaMaterialResult resultado = entregaMaterialService.despacharEntregaMaterial(id);
             return switch (resultado) {
                 case ENTREGA_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                    new ErrorResponseDTO("ENTREGA_NOT_FOUND", "No se encontro la entrega"));
+                    new ErrorResponseDTO("ENTREGA_NOT_FOUND", "No se encontró la entrega"));
                 case ESTADO_INVALIDO -> ResponseEntity.status(HttpStatus.CONFLICT).body(
                     new ErrorResponseDTO("ESTADO_INVALIDO", "La entrega solo puede despacharse si esta en PROGRAMADA"));
                 case DETALLE_EMPTY -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
@@ -178,14 +235,20 @@ public class EntregaMaterialController {
                     new ErrorResponseDTO("LOTE_NOT_VALID", "No se puede usar un lote invalido para el despacho"));
                 case STOCK_INSUFFICIENT -> ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(
                     new ErrorResponseDTO("STOCK_INSUFFICIENT", "No hay stock suficiente para despachar toda la entrega"));
-                case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se despacho la entrega con exito");
+                case UPDATED -> ResponseEntity.status(HttpStatus.OK).body("Se despacho la entrega con éxito");
             };
         } catch (ObjectOptimisticLockingFailureException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(
-                new ErrorResponseDTO("STOCK_CONFLICT", "El stock fue actualizado por otra operacion. Intente nuevamente"));
+                new ErrorResponseDTO("STOCK_CONFLICT", "El stock fue actualizado por otra operación. Intente nuevamente"));
         }
     }
 
+    /**
+     * Moves a delivery from {@code DESPACHADA} to {@code EN_RUTA}.
+     *
+     * @param id delivery identifier
+     * @return updated response or validation/business errors
+     */
     @PatchMapping("/entregas/{id}/en-ruta")
     public ResponseEntity<Object> enRutaEntregaMaterial(@PathVariable Long id) {
         EnRutaEntregaMaterialResult resultado = entregaMaterialService.enRutaEntregaMaterial(id);
@@ -198,6 +261,14 @@ public class EntregaMaterialController {
         };
     }
 
+    /**
+     * Registers delivery reception and updates the related request final state.
+     *
+     * @param id delivery identifier
+     * @param dto reception payload
+     * @param result Bean Validation result
+     * @return updated response or validation/business errors
+     */
     @PatchMapping("/entregas/{id}/registrar-recepcion")
     public ResponseEntity<Object> registrarRecepcionEntregaMaterial(
         @PathVariable Long id,
@@ -224,6 +295,12 @@ public class EntregaMaterialController {
         };
     }
 
+    /**
+     * Resolves domain role from Spring Security authorities.
+     *
+     * @param authentication authenticated principal
+     * @return domain role
+     */
     private Rol obtenerRol(Authentication authentication) {
         String authority = authentication.getAuthorities().stream()
             .map(GrantedAuthority::getAuthority)
@@ -233,6 +310,13 @@ public class EntregaMaterialController {
         return Rol.valueOf(authority.replace("ROLE_", ""));
     }
 
+    /**
+     * Resolves the authenticated user's branch id when role is {@code SEDE}.
+     *
+     * @param authentication authenticated principal
+     * @param rol requester role
+     * @return branch id for {@code SEDE}, otherwise {@code null}
+     */
     private Long obtenerSedeIdUsuario(Authentication authentication, Rol rol) {
         if (rol != Rol.SEDE) {
             return null;

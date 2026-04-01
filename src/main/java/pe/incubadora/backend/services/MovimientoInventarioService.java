@@ -23,6 +23,9 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 @Service
+/**
+ * Handles inventory movement creation and querying.
+ */
 public class MovimientoInventarioService {
     @Autowired
     private MovimientoInventarioRepository movimientoInventarioRepository;
@@ -31,6 +34,12 @@ public class MovimientoInventarioService {
     @Autowired
     private LoteIngresoRepository loteIngresoRepository;
 
+    /**
+     * Creates a manual inventory adjustment and updates lot available quantity accordingly.
+     *
+     * @param dto adjustment payload
+     * @return operation result
+     */
     @Transactional
     public CreateAjusteMovimientoInventarioResult createAjusteMovimientoInventario(AjusteMovimientoInventarioDTO dto) {
         MaterialAcademicoEntity material = materialAcademicoRepository.findById(dto.getIdMaterial()).orElse(null);
@@ -87,10 +96,29 @@ public class MovimientoInventarioService {
         return CreateAjusteMovimientoInventarioResult.CREATED;
     }
 
+    /**
+     * Returns one inventory movement by id.
+     *
+     * @param id movement identifier
+     * @return optional movement
+     */
     public Optional<MovimientoInventarioEntity> getMovimientoInventarioById(Long id) {
         return movimientoInventarioRepository.findById(id);
     }
 
+    /**
+     * Returns paginated inventory movements using optional filters.
+     *
+     * @param materialId optional material id filter
+     * @param loteId optional lot id filter
+     * @param tipoMovimiento optional movement type filter
+     * @param fechaDesde optional start date
+     * @param fechaHasta optional end date
+     * @param page page index
+     * @param size page size
+     * @param sort sort direction token
+     * @return paginated movement list
+     */
     public Page<MovimientoInventarioEntity> getMovimientosByFilters(
         Long materialId,
         Long loteId,

@@ -19,10 +19,19 @@ import java.util.Objects;
 import java.util.Optional;
 
 @Service
+/**
+ * Encapsulates branch (sede) business rules for create, update and role-aware reads.
+ */
 public class SedeIcpnaService {
     @Autowired
     private SedeIcpnaRepository sedeIcpnaRepository;
 
+    /**
+     * Creates a new branch after validating the requested status.
+     *
+     * @param dto branch payload
+     * @return create operation result
+     */
     @Transactional
     public CreateSedeResult createSede(SedeIcpnaDTO dto) {
         SedeEstado estado;
@@ -43,6 +52,13 @@ public class SedeIcpnaService {
         return CreateSedeResult.CREATED;
     }
 
+    /**
+     * Updates a branch with patch semantics (only non-null fields are applied).
+     *
+     * @param dto update payload
+     * @param id branch identifier
+     * @return update operation result
+     */
     @Transactional
     public UpdateSedeResult updateSede(SedeIcpnaDTO dto, Long id) {
         SedeIcpnaEntity sede = sedeIcpnaRepository.findById(id).orElse(null);
@@ -58,6 +74,14 @@ public class SedeIcpnaService {
         return UpdateSedeResult.UPDATED;
     }
 
+    /**
+     * Returns branches visible to the requester role.
+     *
+     * @param page paging configuration
+     * @param rol requester role
+     * @param sedeId requester's branch id when role is {@code SEDE}
+     * @return paginated branches in the allowed scope
+     */
     public Page<SedeIcpnaEntity> getSedes(Pageable page, Rol rol, Long sedeId) {
         if (rol == Rol.SEDE) {
             if (sedeId == null) {
@@ -72,6 +96,14 @@ public class SedeIcpnaService {
         return sedeIcpnaRepository.findAll(page);
     }
 
+    /**
+     * Returns a branch by id while enforcing branch-user scope.
+     *
+     * @param rol requester role
+     * @param sedeId requested branch id
+     * @param sedeIdUsuario requester's branch id
+     * @return optional branch in the allowed scope
+     */
     public Optional<SedeIcpnaEntity> getSedeById(Rol rol, Long sedeId, Long sedeIdUsuario) {
         if (rol == Rol.SEDE) {
             if (!Objects.equals(sedeId, sedeIdUsuario)) {
@@ -81,6 +113,12 @@ public class SedeIcpnaService {
         return sedeIcpnaRepository.findById(sedeId);
     }
 
+    /**
+     * Validates branch update payload fields when present.
+     *
+     * @param dto update payload
+     * @return first validation error result or {@code null} when valid
+     */
     private UpdateSedeResult validateSedeDTO(SedeIcpnaDTO dto) {
         if (dto.getCodigo() != null) {
             if (dto.getCodigo().trim().isEmpty()) {
@@ -117,6 +155,12 @@ public class SedeIcpnaService {
         return null;
     }
 
+    /**
+     * Applies non-null payload fields to the target branch entity.
+     *
+     * @param dto update payload
+     * @param sede target entity
+     */
     private void applyChanges(SedeIcpnaDTO dto, SedeIcpnaEntity sede) {
         if (dto.getCodigo() != null) {
             sede.setCodigo(dto.getCodigo());

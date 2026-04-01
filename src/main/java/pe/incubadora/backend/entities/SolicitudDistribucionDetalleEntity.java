@@ -11,22 +11,31 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name = "solicitud_distribucion_detalle")
+/**
+ * Represents one requested material line within a distribution request.
+ */
 public class SolicitudDistribucionDetalleEntity {
 
+    /** Primary key. */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Parent distribution request. */
     @ManyToOne
     @JoinColumn(name = "solicitud_id")
     @JsonBackReference
     private SolicitudDistribucionEntity solicitud;
 
+    /** Requested material. */
     @ManyToOne
     @JoinColumn(name = "material_id")
     private MaterialAcademicoEntity material;
 
+    /** Quantity requested by the branch. */
     private Integer cantidadSolicitada;
+    /** Quantity approved by review process. */
     private Integer cantidadAprobada;
+    /** Optional item-specific comment. */
     private String comentarioItem;
 }

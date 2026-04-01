@@ -37,6 +37,9 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+/**
+ * Contains delivery lifecycle business logic: creation, dispatch, route transition and reception.
+ */
 public class EntregaMaterialService {
     @Autowired
     private EntregaMaterialRepository entregaMaterialRepository;
@@ -51,6 +54,12 @@ public class EntregaMaterialService {
     @Autowired
     private MovimientoInventarioRepository movimientoInventarioRepository;
 
+    /**
+     * Creates a delivery from an approved request and copies approved lines as delivery details.
+     *
+     * @param dto delivery payload
+     * @return create operation result
+     */
     @Transactional
     public CreateEntregaMaterialResult createEntregaMaterial(EntregaMaterialDTO dto) {
         SolicitudDistribucionEntity solicitud = solicitudDistribucionRepository.findById(dto.getSolicitudId()).orElse(null);
@@ -103,10 +112,23 @@ public class EntregaMaterialService {
         return CreateEntregaMaterialResult.CREATED;
     }
 
+    /**
+     * Returns one delivery by id.
+     *
+     * @param id delivery identifier
+     * @return optional delivery
+     */
     public Optional<EntregaMaterialEntity> getEntregaMaterialById(Long id) {
         return entregaMaterialRepository.findById(id);
     }
 
+    /**
+     * Dispatches a delivery by allocating stock from available lots following FEFO order.
+     * It rewrites delivery details at lot level and records inventory movement rows.
+     *
+     * @param id delivery identifier
+     * @return operation result
+     */
     @Transactional
     public DespacharEntregaMaterialResult despacharEntregaMaterial(Long id) {
         EntregaMaterialEntity entrega = entregaMaterialRepository.findById(id).orElse(null);
@@ -192,6 +214,12 @@ public class EntregaMaterialService {
         return DespacharEntregaMaterialResult.UPDATED;
     }
 
+    /**
+     * Moves delivery state from {@code DESPACHADA} to {@code EN_RUTA}.
+     *
+     * @param id delivery identifier
+     * @return operation result
+     */
     @Transactional
     public EnRutaEntregaMaterialResult enRutaEntregaMaterial(Long id) {
         EntregaMaterialEntity entrega = entregaMaterialRepository.findById(id).orElse(null);
@@ -207,6 +235,13 @@ public class EntregaMaterialService {
         return EnRutaEntregaMaterialResult.UPDATED;
     }
 
+    /**
+     * Registers reception for a delivery in route and updates related request final status.
+     *
+     * @param id delivery identifier
+     * @param dto reception payload
+     * @return operation result
+     */
     @Transactional
     public RegistrarRecepcionEntregaMaterialResult registrarRecepcionEntregaMaterial(
         Long id,
@@ -232,6 +267,20 @@ public class EntregaMaterialService {
         return RegistrarRecepcionEntregaMaterialResult.UPDATED;
     }
 
+    /**
+     * Returns paginated deliveries with optional filters and role scope restriction.
+     *
+     * @param userSedeId requester's branch id (for {@code SEDE} users)
+     * @param solicitudId optional request filter
+     * @param sedeId optional branch filter for non-branch users
+     * @param estadoEntrega optional delivery status filter
+     * @param fechaDesde optional start date
+     * @param fechaHasta optional end date
+     * @param page page index
+     * @param size page size
+     * @param sort sort direction token
+     * @return paginated deliveries
+     */
     public Page<EntregaMaterialEntity> getEntregasByFilters(
         Long userSedeId, Long solicitudId, Long sedeId, String estadoEntrega, LocalDate fechaDesde,
         LocalDate fechaHasta, int page, int size, String sort

@@ -20,10 +20,20 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1")
+/**
+ * Exposes CRUD-style endpoints for academic materials.
+ */
 public class MaterialAcademicoController {
     @Autowired
     private MaterialAcademicoService materialAcademicoService;
 
+    /**
+     * Creates an academic material.
+     *
+     * @param dto material payload
+     * @param result validation result
+     * @return created response or validation/conflict errors
+     */
     @PostMapping("/materiales")
     public ResponseEntity<Object> createMaterial(@Valid @RequestBody MaterialAcademicoDTO dto, BindingResult result) {
         if (result.hasErrors()) {
@@ -59,6 +69,13 @@ public class MaterialAcademicoController {
         }
     }
 
+    /**
+     * Updates an academic material.
+     *
+     * @param dto patch-like payload (non-null fields are applied)
+     * @param id material identifier
+     * @return updated response or business/validation errors
+     */
     @PutMapping("/materiales/{id}")
     public ResponseEntity<Object> updateMaterial(@RequestBody MaterialAcademicoDTO dto, @PathVariable Long id) {
         try {
@@ -92,12 +109,24 @@ public class MaterialAcademicoController {
         }
     }
 
+    /**
+     * Returns paginated academic materials.
+     *
+     * @param page page index
+     * @return paginated materials
+     */
     @GetMapping("/materiales")
     public ResponseEntity<Object> getMateriales(@RequestParam int page) {
         Pageable pageable = Pageable.ofSize(10).withPage(page);
         return ResponseEntity.status(HttpStatus.OK).body(materialAcademicoService.getMaterialesAcademicos(pageable));
     }
 
+    /**
+     * Returns one academic material by id.
+     *
+     * @param id material identifier
+     * @return material response or not found error
+     */
     @GetMapping("/materiales/{id}")
     public ResponseEntity<Object> getMaterialById(@PathVariable Long id) {
         MaterialAcademicoEntity material = materialAcademicoService.getMaterialAcademico(id).orElse(null);

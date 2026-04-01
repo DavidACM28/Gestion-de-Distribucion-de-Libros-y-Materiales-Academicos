@@ -31,34 +31,64 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1")
+/**
+ * Exposes inventory movement endpoints, including manual stock adjustments and queries.
+ */
 public class MovimientoInventarioController {
     @Autowired
     private MovimientoInventarioService movimientoInventarioService;
 
+    /**
+     * Handles invalid filter value types sent in query parameters.
+     *
+     * @return validation error response
+     */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<Object> handleTypeMismatchException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
             new ErrorResponseDTO("VALIDATION_ERROR", "Asegurese de que los filtros se envien con el formato correcto"));
     }
 
+    /**
+     * Handles invalid enum or argument values used by filters.
+     *
+     * @return validation error response
+     */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleIllegalArgumentException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
             new ErrorResponseDTO("VALIDATION_ERROR", "Asegurese de que los filtros se envien con el formato correcto"));
     }
 
+    /**
+     * Handles missing mandatory pagination and sorting parameters.
+     *
+     * @return validation error response
+     */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<Object> handleMissingServletRequestParameterException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
             new ErrorResponseDTO("VALIDATION_ERROR", "Los parametros: size, page, y sort, son obligatorios"));
     }
 
+    /**
+     * Handles invalid date formats for date-based filters.
+     *
+     * @return validation error response
+     */
     @ExceptionHandler(DateTimeParseException.class)
     public ResponseEntity<Object> handleDateTimeParseException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
             new ErrorResponseDTO("VALIDATION_ERROR", "Fecha invalida. Use formato yyyy-MM-dd"));
     }
 
+    /**
+     * Creates a manual inventory adjustment for a specific lot.
+     *
+     * @param dto adjustment payload
+     * @param result Bean Validation result
+     * @return created response or validation/business errors
+     */
     @PostMapping("/movimientos/ajuste")
     public ResponseEntity<Object> createAjusteMovimientoInventario(
         @Valid @RequestBody AjusteMovimientoInventarioDTO dto, BindingResult result
@@ -96,6 +126,12 @@ public class MovimientoInventarioController {
         }
     }
 
+    /**
+     * Returns one inventory movement by id.
+     *
+     * @param id movement identifier
+     * @return movement response or not found error
+     */
     @GetMapping("/movimientos/{id}")
     public ResponseEntity<Object> getMovimientoInventarioById(@PathVariable Long id) {
         MovimientoInventarioEntity movimiento = movimientoInventarioService.getMovimientoInventarioById(id).orElse(null);
@@ -106,6 +142,19 @@ public class MovimientoInventarioController {
         return ResponseEntity.status(HttpStatus.OK).body(movimiento);
     }
 
+    /**
+     * Returns paginated inventory movements using optional filters.
+     *
+     * @param materialId optional material id filter
+     * @param loteId optional lot id filter
+     * @param tipoMovimiento optional movement type filter
+     * @param fechaDesde optional start date in {@code yyyy-MM-dd}
+     * @param fechaHasta optional end date in {@code yyyy-MM-dd}
+     * @param page page index
+     * @param size page size
+     * @param sort sort direction token
+     * @return paginated movement list
+     */
     @GetMapping("/movimientos")
     public ResponseEntity<Object> getMovimientos(
         @RequestParam(required = false) Long materialId, @RequestParam(required = false) Long loteId,

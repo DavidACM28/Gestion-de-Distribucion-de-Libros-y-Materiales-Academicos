@@ -30,6 +30,9 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/auth")
+/**
+ * Exposes authentication endpoints for user registration and login.
+ */
 public class AuthController {
 
     @Autowired
@@ -39,6 +42,13 @@ public class AuthController {
     @Autowired
     JwtGenerador jwtGenerador;
 
+    /**
+     * Registers a new user account using the requested role and optional branch assignment.
+     *
+     * @param registerDTO payload with username, password, role and optional branch id
+     * @param result validation result produced by Bean Validation
+     * @return success response or a validation/business error response
+     */
     @PostMapping("/register")
     public ResponseEntity<Object> register(@Valid @RequestBody RegisterDTO registerDTO, BindingResult result) {
         if (result.hasErrors()) {
@@ -68,6 +78,12 @@ public class AuthController {
         }
     }
 
+    /**
+     * Authenticates a user and returns a JWT plus user data when the role belongs to a branch user.
+     *
+     * @param loginDTO credentials payload
+     * @return token response or unauthorized error when the user cannot be resolved
+     */
     @PostMapping("/login")
     public ResponseEntity<Object> login(@RequestBody LoginDTO loginDTO) {
         Authentication authentication =

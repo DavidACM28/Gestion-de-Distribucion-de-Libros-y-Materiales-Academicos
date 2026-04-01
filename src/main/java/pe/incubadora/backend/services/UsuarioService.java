@@ -14,6 +14,9 @@ import pe.incubadora.backend.utils.RegisterUsuarioResult;
 import pe.incubadora.backend.utils.Rol;
 
 @Service
+/**
+ * Handles user registration and lookup operations.
+ */
 public class UsuarioService {
     @Autowired
     private UsuarioRepository usuarioRepository;
@@ -22,6 +25,13 @@ public class UsuarioService {
 
     private final PasswordEncoder encoder = new BCryptPasswordEncoder();
 
+    /**
+     * Registers a user according to role rules:
+     * {@code SEDE} requires branch id, administrative roles must not include one.
+     *
+     * @param dto registration payload
+     * @return registration business result
+     */
     @Transactional
     public RegisterUsuarioResult register(RegisterDTO dto) {
         Rol rol;
@@ -59,6 +69,12 @@ public class UsuarioService {
         return RegisterUsuarioResult.CREATED;
     }
 
+    /**
+     * Finds a user by username.
+     *
+     * @param username unique username
+     * @return user entity or {@code null} when not found
+     */
     public UsuarioEntity findByUsername(String username) {
         return usuarioRepository.findByUsername(username).orElse(null);
     }

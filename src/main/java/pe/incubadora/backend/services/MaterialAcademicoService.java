@@ -13,10 +13,19 @@ import pe.incubadora.backend.utils.materialAcademico.*;
 import java.util.Optional;
 
 @Service
+/**
+ * Encapsulates academic material business rules for create, update and queries.
+ */
 public class MaterialAcademicoService {
     @Autowired
     private MaterialAcademicoRepository materialAcademicoRepository;
 
+    /**
+     * Creates an academic material after validating catalog enums.
+     *
+     * @param dto material payload
+     * @return create operation result
+     */
     @Transactional
     public CreateMaterialAcademicoResult createMaterialAcademico(MaterialAcademicoDTO dto) {
         MaterialAcademicoCategoria categoria;
@@ -51,6 +60,13 @@ public class MaterialAcademicoService {
         return CreateMaterialAcademicoResult.CREATED;
     }
 
+    /**
+     * Updates an academic material with patch semantics.
+     *
+     * @param dto update payload
+     * @param id material identifier
+     * @return update operation result
+     */
     @Transactional
     public UpdateMaterialAcademicoResult updateMaterialAcademico(MaterialAcademicoDTO dto, Long id) {
         MaterialAcademicoEntity materialAcademico = materialAcademicoRepository.findById(id).orElse(null);
@@ -66,14 +82,32 @@ public class MaterialAcademicoService {
         return UpdateMaterialAcademicoResult.UPDATED;
     }
 
+    /**
+     * Returns paginated academic materials.
+     *
+     * @param page paging configuration
+     * @return paginated materials
+     */
     public Page<MaterialAcademicoEntity> getMaterialesAcademicos(Pageable page) {
         return materialAcademicoRepository.findAll(page);
     }
 
+    /**
+     * Returns one material by id.
+     *
+     * @param id material identifier
+     * @return optional material
+     */
     public Optional<MaterialAcademicoEntity> getMaterialAcademico(Long id) {
         return materialAcademicoRepository.findById(id);
     }
 
+    /**
+     * Validates update payload fields when present.
+     *
+     * @param dto update payload
+     * @return first validation error result or {@code null} when valid
+     */
     private UpdateMaterialAcademicoResult validateMaterialAcademicoDTO(MaterialAcademicoDTO dto) {
         if (dto.getSku() != null) {
             if (dto.getSku().trim().isEmpty()) {
@@ -114,6 +148,12 @@ public class MaterialAcademicoService {
         return null;
     }
 
+    /**
+     * Applies non-null payload fields to the target material entity.
+     *
+     * @param dto update payload
+     * @param material target entity
+     */
     private void applyChanges(MaterialAcademicoDTO dto, MaterialAcademicoEntity material) {
         if (dto.getSku() != null) {
             material.setSku(dto.getSku());

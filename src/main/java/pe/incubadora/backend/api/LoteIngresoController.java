@@ -21,10 +21,20 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1")
+/**
+ * Exposes endpoints for inbound stock batches (lotes de ingreso).
+ */
 public class LoteIngresoController {
     @Autowired
     private LoteIngresoService loteIngresoService;
 
+    /**
+     * Creates a new inbound batch.
+     *
+     * @param dto inbound batch payload
+     * @param result validation result
+     * @return created response or validation/business errors
+     */
     @PostMapping("/lotes")
     public ResponseEntity<Object> createLoteIngreso(@Valid @RequestBody LoteIngresoDTO dto, BindingResult result) {
         if (result.hasErrors()) {
@@ -54,6 +64,13 @@ public class LoteIngresoController {
         }
     }
 
+    /**
+     * Updates an inbound batch.
+     *
+     * @param dto patch-like payload (non-null fields are applied)
+     * @param id batch identifier
+     * @return updated response or validation/business errors
+     */
     @PutMapping("/lotes/{id}")
     public ResponseEntity<Object> updateLoteIngreso(@RequestBody LoteIngresoDTO dto, @PathVariable Long id) {
         try {
@@ -83,6 +100,12 @@ public class LoteIngresoController {
         }
     }
 
+    /**
+     * Marks an inbound batch as out of validity.
+     *
+     * @param id batch identifier
+     * @return updated response or not found error
+     */
     @PatchMapping("/lotes/{id}/fuera-vigencia")
     public ResponseEntity<Object> quitarVigenciaLoteIngreso(@PathVariable Long id) {
         LoteFueraDeVigenciaResult resultado = loteIngresoService.fueraDeVigenciaLoteIngreso(id);
@@ -93,12 +116,24 @@ public class LoteIngresoController {
         };
     }
 
+    /**
+     * Returns paginated inbound batches.
+     *
+     * @param page page index
+     * @return paginated batch list
+     */
     @GetMapping("/lotes")
     public ResponseEntity<Object> getLotes(@RequestParam int page) {
         Pageable pageable = Pageable.ofSize(10).withPage(page);
         return ResponseEntity.status(HttpStatus.OK).body(loteIngresoService.getLotes(pageable));
     }
 
+    /**
+     * Returns one inbound batch by id.
+     *
+     * @param id batch identifier
+     * @return batch response or not found error
+     */
     @GetMapping("/lotes/{id}")
     public ResponseEntity<Object> getLoteIngresoById(@PathVariable Long id) {
         LoteIngresoEntity lote = loteIngresoService.getLoteIngresoById(id).orElse(null);

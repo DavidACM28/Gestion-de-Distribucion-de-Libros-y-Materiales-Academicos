@@ -20,12 +20,21 @@ import java.time.format.DateTimeParseException;
 import java.util.Optional;
 
 @Service
+/**
+ * Handles inbound lot operations, including validity rules and stock metadata updates.
+ */
 public class LoteIngresoService {
     @Autowired
     private LoteIngresoRepository loteIngresoRepository;
     @Autowired
     private MaterialAcademicoRepository materialAcademicoRepository;
 
+    /**
+     * Creates an inbound lot and initializes available quantity from received quantity.
+     *
+     * @param dto lot payload
+     * @return create operation result
+     */
     @Transactional
     public CreateLoteIngresoResult createLoteIngreso(LoteIngresoDTO dto) {
         MaterialAcademicoEntity material = materialAcademicoRepository.findById(dto.getIdMaterial()).orElse(null);
@@ -65,6 +74,13 @@ public class LoteIngresoService {
         return CreateLoteIngresoResult.CREATED;
     }
 
+    /**
+     * Updates an inbound lot with patch semantics and business validations.
+     *
+     * @param dto update payload
+     * @param id lot identifier
+     * @return update operation result
+     */
     @Transactional
     public UpdateLoteIngresoResult updateLoteIngreso(LoteIngresoDTO dto, Long id) {
         LoteIngresoEntity loteIngreso = loteIngresoRepository.findById(id).orElse(null);
@@ -87,6 +103,12 @@ public class LoteIngresoService {
         return UpdateLoteIngresoResult.UPDATED;
     }
 
+    /**
+     * Marks an inbound lot as out of validity.
+     *
+     * @param id lot identifier
+     * @return operation result
+     */
     @Transactional
     public LoteFueraDeVigenciaResult fueraDeVigenciaLoteIngreso(Long id) {
         LoteIngresoEntity loteIngreso = loteIngresoRepository.findById(id).orElse(null);
@@ -98,14 +120,34 @@ public class LoteIngresoService {
         return LoteFueraDeVigenciaResult.UPDATED;
     }
 
+    /**
+     * Returns paginated inbound lots.
+     *
+     * @param page paging configuration
+     * @return paginated lot list
+     */
     public Page<LoteIngresoEntity> getLotes(Pageable page) {
         return loteIngresoRepository.findAll(page);
     }
 
+    /**
+     * Returns one inbound lot by id.
+     *
+     * @param id lot identifier
+     * @return optional lot
+     */
     public Optional<LoteIngresoEntity> getLoteIngresoById(Long id) {
         return loteIngresoRepository.findById(id);
     }
 
+    /**
+     * Validates update payload fields in context of the current lot and target material.
+     *
+     * @param dto update payload
+     * @param loteIngreso existing lot entity
+     * @param material target material used for control-vigencia validation
+     * @return first validation error result or {@code null} when valid
+     */
     private UpdateLoteIngresoResult validateLoteIngresoDTO(
         LoteIngresoDTO dto,
         LoteIngresoEntity loteIngreso,
@@ -167,6 +209,13 @@ public class LoteIngresoService {
         return null;
     }
 
+    /**
+     * Applies non-null payload fields to the target lot.
+     *
+     * @param dto update payload
+     * @param loteIngreso target lot entity
+     * @param material material resolved for update
+     */
     private void applyChanges(
         LoteIngresoDTO dto,
         LoteIngresoEntity loteIngreso,
@@ -195,6 +244,14 @@ public class LoteIngresoService {
         }
     }
 
+    /**
+     * Resolves the material used during lot update:
+     * keeps current material when {@code idMaterial} is not provided.
+     *
+     * @param dto update payload
+     * @param loteIngreso current lot entity
+     * @return resolved material or {@code null} when requested material does not exist
+     */
     private MaterialAcademicoEntity obtenerMaterialParaUpdate(LoteIngresoDTO dto, LoteIngresoEntity loteIngreso) {
         if (dto.getIdMaterial() == null) {
             return loteIngreso.getMaterialAcademico();

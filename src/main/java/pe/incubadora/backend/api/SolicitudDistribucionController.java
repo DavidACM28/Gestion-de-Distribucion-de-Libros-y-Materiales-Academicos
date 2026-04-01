@@ -36,36 +36,67 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1")
+/**
+ * Manages distribution request endpoints, including lifecycle transitions and filtered queries.
+ */
 public class SolicitudDistribucionController {
     @Autowired
     private SolicitudDistribucionService solicitudDistribucionService;
     @Autowired
     private UsuarioService usuarioService;
 
+    /**
+     * Handles invalid filter value types sent in query parameters.
+     *
+     * @return validation error response
+     */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<Object> handleTypeMismatchException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
             new ErrorResponseDTO("VALIDATION_ERROR", "Asegúrese de que los filtros se envíen con el formato correcto"));
     }
 
+    /**
+     * Handles invalid enum or argument values used by filters.
+     *
+     * @return validation error response
+     */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleIllegalArgumentException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
             new ErrorResponseDTO("VALIDATION_ERROR", "Asegúrese de que los filtros se envíen con el formato correcto"));
     }
 
+    /**
+     * Handles missing mandatory pagination and sorting parameters.
+     *
+     * @return validation error response
+     */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<Object> handleMissingServletRequestParameterException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
             new ErrorResponseDTO("VALIDATION_ERROR", "Los parámetros: size, page, y sort, son obligatorios"));
     }
 
+    /**
+     * Handles invalid date formats for date-based filters.
+     *
+     * @return validation error response
+     */
     @ExceptionHandler(DateTimeParseException.class)
     public ResponseEntity<Object> handleDateTimeParseException() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
             new ErrorResponseDTO("VALIDATION_ERROR", "Fecha invalida. Use formato yyyy-MM-dd"));
     }
 
+    /**
+     * Creates a distribution request and validates role-based ownership for branch users.
+     *
+     * @param dto request payload
+     * @param result Bean Validation result
+     * @param authentication authenticated principal
+     * @return created response or validation/business errors
+     */
     @PostMapping("/solicitudes")
     public ResponseEntity<Object> createSolicitudDistribucion(
         @Valid @RequestBody SolicitudDistribucionDTO dto, BindingResult result, Authentication authentication) {
@@ -119,6 +150,14 @@ public class SolicitudDistribucionController {
         }
     }
 
+    /**
+     * Updates a draft request and enforces branch ownership for users with role {@code SEDE}.
+     *
+     * @param dto patch-like payload (non-null fields are applied)
+     * @param id request identifier
+     * @param authentication authenticated principal
+     * @return updated response or validation/business errors
+     */
     @PutMapping("/solicitudes/{id}")
     public ResponseEntity<Object> updateSolicitudDistribucion(
         @RequestBody SolicitudDistribucionDTO dto, @PathVariable Long id, Authentication authentication) {
@@ -176,6 +215,13 @@ public class SolicitudDistribucionController {
         }
     }
 
+    /**
+     * Sends a request for review.
+     *
+     * @param id request identifier
+     * @param authentication authenticated principal
+     * @return updated response or validation/business errors
+     */
     @PatchMapping("/solicitudes/{id}/enviar")
     public ResponseEntity<Object> enviarSolicitudDistribucion(@PathVariable Long id, Authentication authentication) {
         SolicitudDistribucionEntity solicitud = solicitudDistribucionService.getSolicitudDistribucionById(id).orElse(null);
@@ -207,6 +253,13 @@ public class SolicitudDistribucionController {
         };
     }
 
+    /**
+     * Marks a request as observed and stores review comments.
+     *
+     * @param id request identifier
+     * @param dto payload with review comment
+     * @return updated response or validation/business errors
+     */
     @PatchMapping("/solicitudes/{id}/observar")
     public ResponseEntity<Object> observarSolicitudDistribucion(
         @PathVariable Long id, @RequestBody ObservarSolicitudDTO dto) {
@@ -224,6 +277,13 @@ public class SolicitudDistribucionController {
         };
     }
 
+    /**
+     * Cancels a request, enforcing branch ownership for {@code SEDE} users.
+     *
+     * @param id request identifier
+     * @param authentication authenticated principal
+     * @return updated response or validation/business errors
+     */
     @PatchMapping("/solicitudes/{id}/cancelar")
     public ResponseEntity<Object> cancelarSolicitudDistribucion(@PathVariable Long id, Authentication authentication) {
         SolicitudDistribucionEntity solicitud = solicitudDistribucionService.getSolicitudDistribucionById(id).orElse(null);
@@ -255,6 +315,13 @@ public class SolicitudDistribucionController {
         };
     }
 
+    /**
+     * Approves a request by assigning approved quantities per detail.
+     *
+     * @param id request identifier
+     * @param dto approval payload
+     * @return updated response or validation/business errors
+     */
     @PatchMapping("/solicitudes/{id}/aprobar")
     public ResponseEntity<Object> aprobarSolicitudDistribucion(
         @PathVariable Long id, @RequestBody AprobarSolicitudDTO dto) {
@@ -280,6 +347,13 @@ public class SolicitudDistribucionController {
         };
     }
 
+    /**
+     * Returns one request by id with visibility rules for {@code SEDE} users.
+     *
+     * @param id request identifier
+     * @param authentication authenticated principal
+     * @return request response or not found/forbidden errors
+     */
     @GetMapping("/solicitudes/{id}")
     public ResponseEntity<Object> getSolicitudById(@PathVariable Long id, Authentication authentication) {
         SolicitudDistribucionEntity solicitud = solicitudDistribucionService.getSolicitudDistribucionById(id).orElse(null);
@@ -302,6 +376,21 @@ public class SolicitudDistribucionController {
         return ResponseEntity.status(HttpStatus.OK).body(solicitud);
     }
 
+    /**
+     * Returns paginated requests with optional filters and role-based scope restrictions.
+     *
+     * @param authentication authenticated principal
+     * @param sedeId optional branch filter for admin/warehouse users
+     * @param periodoAcademico optional period filter in {@code yyyy-MM}
+     * @param estado optional status filter
+     * @param prioridad optional priority filter
+     * @param fechaDesde optional start date filter in {@code yyyy-MM-dd}
+     * @param fechaHasta optional end date filter in {@code yyyy-MM-dd}
+     * @param page page index
+     * @param size page size
+     * @param sort sort direction token
+     * @return paginated request list
+     */
     @GetMapping("/solicitudes")
     public ResponseEntity<Object> getSolicitudes(
         Authentication authentication, @RequestParam(required = false) Long sedeId,
@@ -339,6 +428,12 @@ public class SolicitudDistribucionController {
         return ResponseEntity.status(HttpStatus.OK).body(solicitudes);
     }
 
+    /**
+     * Resolves domain role from Spring Security authorities.
+     *
+     * @param authentication authenticated principal
+     * @return domain role
+     */
     private Rol obtenerRol(Authentication authentication) {
         String authority = authentication.getAuthorities().stream()
             .map(GrantedAuthority::getAuthority)
@@ -348,6 +443,13 @@ public class SolicitudDistribucionController {
         return Rol.valueOf(authority.replace("ROLE_", ""));
     }
 
+    /**
+     * Resolves the authenticated user's branch id when role is {@code SEDE}.
+     *
+     * @param authentication authenticated principal
+     * @param rol requester role
+     * @return branch id for {@code SEDE}, otherwise {@code null}
+     */
     private Long obtenerSedeIdUsuario(Authentication authentication, Rol rol) {
         if (rol != Rol.SEDE) {
             return null;

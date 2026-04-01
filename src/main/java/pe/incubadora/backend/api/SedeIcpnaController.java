@@ -25,12 +25,22 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1")
+/**
+ * Manages branch (sede) endpoints including creation, updates and role-aware reads.
+ */
 public class SedeIcpnaController {
     @Autowired
     private SedeIcpnaService sedeIcpnaService;
     @Autowired
     private UsuarioService usuarioService;
 
+    /**
+     * Creates a new branch record.
+     *
+     * @param dto branch payload
+     * @param result request validation result
+     * @return created response or validation/conflict errors
+     */
     @PostMapping("/sedes")
     public ResponseEntity<Object> createSede(@Valid @RequestBody SedeIcpnaDTO dto, BindingResult result) {
         if (result.hasErrors()) {
@@ -54,6 +64,13 @@ public class SedeIcpnaController {
         }
     }
 
+    /**
+     * Updates an existing branch.
+     *
+     * @param dto patch-like payload (non-null fields are applied)
+     * @param id branch identifier
+     * @return updated response or business/validation errors
+     */
     @PutMapping("/sedes/{id}")
     public ResponseEntity<Object> updateSede(@RequestBody SedeIcpnaDTO dto, @PathVariable Long id) {
         try {
@@ -81,6 +98,14 @@ public class SedeIcpnaController {
         }
     }
 
+    /**
+     * Returns branches with role restrictions:
+     * branch users can only see their own branch.
+     *
+     * @param page page index
+     * @param authentication authenticated principal
+     * @return paginated branches visible to the requester
+     */
     @GetMapping("/sedes")
     public ResponseEntity<Object> getSedes(@RequestParam int page, Authentication authentication) {
         Pageable pageable = Pageable.ofSize(10).withPage(page);
@@ -95,6 +120,13 @@ public class SedeIcpnaController {
         return ResponseEntity.ok().body(sedeIcpnaService.getSedes(pageable, rol, sedeId));
     }
 
+    /**
+     * Returns a branch by id with role restrictions.
+     *
+     * @param idSede branch identifier
+     * @param authentication authenticated principal
+     * @return branch response or not found/forbidden errors
+     */
     @GetMapping("/sedes/{idSede}")
     public ResponseEntity<Object> getSedeById(@PathVariable Long idSede, Authentication authentication) {
         Rol rol = obtenerRol(authentication);
@@ -114,6 +146,12 @@ public class SedeIcpnaController {
         return ResponseEntity.ok().body(sede);
     }
 
+    /**
+     * Resolves the requester role from Spring Security authorities.
+     *
+     * @param authentication authenticated principal
+     * @return mapped domain role
+     */
     private Rol obtenerRol(Authentication authentication) {
         String authority = authentication.getAuthorities().stream()
             .map(GrantedAuthority::getAuthority)
@@ -123,6 +161,13 @@ public class SedeIcpnaController {
         return Rol.valueOf(authority.replace("ROLE_", ""));
     }
 
+    /**
+     * Resolves the branch id assigned to the requester when role is {@code SEDE}.
+     *
+     * @param authentication authenticated principal
+     * @param rol requester role
+     * @return branch id for {@code SEDE} users, otherwise {@code null}
+     */
     private Long obtenerSedeIdUsuario(Authentication authentication, Rol rol) {
         if (rol != Rol.SEDE) {
             return null;
