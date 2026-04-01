@@ -28,6 +28,7 @@ import pe.incubadora.backend.utils.entregaMaterial.EnRutaEntregaMaterialResult;
 import pe.incubadora.backend.utils.entregaMaterial.EntregaEstado;
 import pe.incubadora.backend.utils.entregaMaterial.RegistrarRecepcionEntregaMaterialResult;
 import pe.incubadora.backend.utils.loteIngreso.LoteIngresoEstado;
+import pe.incubadora.backend.utils.movimientoInventario.TipoAjusteMovimiento;
 import pe.incubadora.backend.utils.solicitudDistribucion.SolicitudDistribucionEstado;
 
 import java.time.LocalDate;
@@ -163,7 +164,7 @@ public class EntregaMaterialService {
                 movimiento.setMaterialAcademico(detalle.getMaterial());
                 movimiento.setLote(lote);
                 movimiento.setFecha(LocalDate.now());
-                movimiento.setTipoMovimiento("SALIDA");
+                movimiento.setTipoMovimiento(TipoAjusteMovimiento.SALIDA.name());
                 movimiento.setCantidad(cantidadTomada);
                 movimiento.setReferenciaTipo("ENTREGA");
                 movimiento.setReferenciaId(entrega.getId());
