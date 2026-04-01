@@ -1,6 +1,11 @@
 package pe.incubadora.backend.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.incubadora.backend.dtos.AjusteMovimientoInventarioDTO;
@@ -15,6 +20,7 @@ import pe.incubadora.backend.utils.movimientoInventario.CreateAjusteMovimientoIn
 import pe.incubadora.backend.utils.movimientoInventario.TipoAjusteMovimiento;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 @Service
 public class MovimientoInventarioService {
@@ -79,5 +85,43 @@ public class MovimientoInventarioService {
         movimientoInventarioRepository.save(movimiento);
 
         return CreateAjusteMovimientoInventarioResult.CREATED;
+    }
+
+    public Optional<MovimientoInventarioEntity> getMovimientoInventarioById(Long id) {
+        return movimientoInventarioRepository.findById(id);
+    }
+
+    public Page<MovimientoInventarioEntity> getMovimientosByFilters(
+        Long materialId,
+        Long loteId,
+        String tipoMovimiento,
+        LocalDate fechaDesde,
+        LocalDate fechaHasta,
+        int page,
+        int size,
+        String sort
+    ) {
+        Specification<MovimientoInventarioEntity> spec = Specification.where((root, query, cb) -> cb.conjunction());
+
+        if (materialId != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("materialAcademico").get("id"), materialId));
+        }
+        if (loteId != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("lote").get("id"), loteId));
+        }
+        if (tipoMovimiento != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("tipoMovimiento"), tipoMovimiento.toUpperCase()));
+        }
+        if (fechaDesde != null) {
+            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("fecha"), fechaDesde));
+        }
+        if (fechaHasta != null) {
+            spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("fecha"), fechaHasta));
+        }
+
+        Sort.Direction direction = "descending".equalsIgnoreCase(sort) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, "id"));
+
+        return movimientoInventarioRepository.findAll(spec, pageable);
     }
 }

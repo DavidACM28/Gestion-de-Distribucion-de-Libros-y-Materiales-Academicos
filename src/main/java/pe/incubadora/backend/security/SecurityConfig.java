@@ -126,6 +126,10 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.PUT,
                         "/api/v1/solicitudes/{id}"
                     ).hasAnyRole("ADMIN", "SEDE")
+                    .requestMatchers(HttpMethod.GET,
+                        "/api/v1/movimientos",
+                        "/api/v1/movimientos/{id}"
+                    ).hasAnyRole("ADMIN", "ALMACEN")
                     .requestMatchers(HttpMethod.PATCH,
                         "/api/v1/entregas/{id}/despachar",
                         "/api/v1/entregas/{id}/en-ruta",
